@@ -81,16 +81,17 @@ frontend/index.html # live dashboard
 ## AgentCore deployment
 
 `deploy/FoodRescueRouterAgent/` is a standalone AWS Bedrock AgentCore Runtime
-deployment of the same agent, tools, and system prompt. Verified working through
-the AgentCore local dev harness (`agentcore dev`); see
+deployment of the same agent, tools, and system prompt — **live and deployed**
+(`arn:aws:bedrock-agentcore:us-east-1:141353495650:runtime/FoodRescueRouterAgent_FoodRescueRouterAgent-FDKqFqAfP3`).
+Verified end to end with a real `agentcore invoke` call. See
 [docs/deploy-agentcore.md](docs/deploy-agentcore.md) for how to run it locally or
-deploy it to AWS.
+redeploy it.
 
 ## Status
 
-Core agent + API + dashboard working end to end against live Bedrock. AgentCore
-deployment scaffolded and verified locally; not yet deployed to AWS. Demo video not
-yet done — see the hackathon build plan.
+Core agent + API + dashboard working end to end against live Bedrock. Routing
+agent also deployed standalone to AWS Bedrock AgentCore Runtime and verified live.
+Demo video not yet done — see the hackathon build plan.
 
 ## License
 

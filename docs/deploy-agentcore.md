@@ -52,6 +52,20 @@ Route this donation now."
 This exercises the exact same agent + tools the real deployment will run, without
 creating any AWS resources.
 
+## Live deployment
+
+Deployed 2026-08-30 to `us-east-1`:
+
+- **Runtime ARN**: `arn:aws:bedrock-agentcore:us-east-1:141353495650:runtime/FoodRescueRouterAgent_FoodRescueRouterAgent-FDKqFqAfP3`
+- **Stack**: `AgentCore-FoodRescueRouterAgent-default`
+
+Verified with a real `agentcore invoke` call end to end: given a 40 lb bakery
+donation, the deployed agent correctly picked the food bank with the highest
+need in the same zone, noticed one candidate driver's availability window was
+too tight for the pickup time, and picked a better-fitting driver instead —
+then called `create_match` for real. Same reasoning quality as the local app,
+running as an actual AWS-hosted service.
+
 ## Deploy for real
 
 ```bash

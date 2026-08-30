@@ -1,3 +1,17 @@
 {
-  "targets": {}
+  "targets": {
+    "default": {
+      "resources": {
+        "runtimes": {
+          "FoodRescueRouterAgent": {
+            "runtimeId": "FoodRescueRouterAgent_FoodRescueRouterAgent-FDKqFqAfP3",
+            "runtimeArn": "arn:aws:bedrock-agentcore:us-east-1:141353495650:runtime/FoodRescueRouterAgent_FoodRescueRouterAgent-FDKqFqAfP3",
+            "roleArn": "arn:aws:iam::141353495650:role/AgentCore-FoodRescueRoute-ApplicationAgentFoodRescu-r68PZsmcYvkc"
+          }
+        },
+        "stackName": "AgentCore-FoodRescueRouterAgent-default",
+        "deployHash": "b28c411088f38232"
+      }
+    }
+  }
 }
