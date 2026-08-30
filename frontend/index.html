@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Food-Rescue Router</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/18.0.11/lib/marked.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.4.14/purify.min.js"></script>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
   .pulse-dot { animation: pulse 1.4s ease-in-out infinite; }
@@ -58,7 +60,7 @@
       <button type="submit" id="submit-btn" class="w-full bg-emerald-700 text-white rounded px-3 py-2 font-medium hover:bg-emerald-800">
         Submit offer to agent
       </button>
-      <p id="agent-result" class="text-sm text-slate-600"></p>
+      <div id="agent-result" class="prose prose-sm prose-slate max-w-none mt-2"></div>
     </form>
 
     <div class="mt-4 flex flex-wrap gap-2 text-xs">
@@ -107,6 +109,10 @@ function card(title, body, accent) {
     <div class="font-medium text-sm">${title}</div>
     <div class="text-xs text-slate-500 mt-1">${body}</div>
   </div>`;
+}
+
+function renderMarkdown(text) {
+  return DOMPurify.sanitize(marked.parse(text));
 }
 
 function needsBadge(level) {
@@ -164,7 +170,7 @@ document.getElementById("donation-form").addEventListener("submit", async (e) =>
   const resultEl = document.getElementById("agent-result");
   btn.disabled = true;
   btn.textContent = "Agent is routing this offer…";
-  resultEl.textContent = "";
+  resultEl.innerHTML = "";
 
   const body = {
     donor_id: document.getElementById("f-donor").value,
@@ -180,7 +186,7 @@ document.getElementById("donation-form").addEventListener("submit", async (e) =>
     body: JSON.stringify(body),
   });
   const data = await res.json();
-  resultEl.textContent = data.agent_result || data.error || "Done.";
+  resultEl.innerHTML = renderMarkdown(data.agent_result || data.error || "Done.");
   btn.disabled = false;
   btn.textContent = "Submit offer to agent";
   refresh();
@@ -200,7 +206,7 @@ document.querySelectorAll(".scenario-btn").forEach(btn => {
 document.getElementById("reset-btn").addEventListener("click", async () => {
   await fetch(`${API}/reset`, { method: "POST" });
   document.getElementById("f-donor").innerHTML = "";
-  document.getElementById("agent-result").textContent = "";
+  document.getElementById("agent-result").innerHTML = "";
   refresh();
 });
 
