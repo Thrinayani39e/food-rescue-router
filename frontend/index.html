@@ -80,7 +80,6 @@
         <span style="display:inline-flex; align-items:center; gap:7px; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--olive);">
           <span style="width:7px; height:7px; border-radius:50%; background:var(--olive); animation: wf-breathe 2.6s ease-in-out infinite;"></span>Network live
         </span>
-        <button type="button" class="btn btn-secondary" id="reset-btn" style="font-size:12px; padding:8px 12px;">Reset demo</button>
         <button type="button" class="btn btn-primary" id="open-dialog-btn">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
           Log a windfall
@@ -551,14 +550,6 @@ async function submitOffer() {
 }
 
 document.getElementById("open-dialog-btn").addEventListener("click", openDialog);
-
-document.getElementById("reset-btn").addEventListener("click", async () => {
-  await fetch(`${API}/reset`, { method: "POST" });
-  coordinatorPhase = "idle"; coordinatorDonationId = null;
-  const ds = document.getElementById("f-donor");
-  if (ds) ds.innerHTML = "";
-  refresh();
-});
 
 function connectEvents() {
   const es = new EventSource(`${API}/events`);
