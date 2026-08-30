@@ -36,6 +36,50 @@ run benefits three separate parties, plus the community the food bank serves.
 4. The dashboard polls live and shows the donor/food-bank/driver views updating, plus
    a feed of everything the agent just did.
 
+## Architecture
+
+```mermaid
+flowchart LR
+    Donor([Donor submits offer\ncategory, qty, zone, window]) --> API["FastAPI\nPOST /donations"]
+    API --> Agent["Strands Agent\nClaude Sonnet via Bedrock"]
+
+    Agent -->|list_food_bank_needs| State[(SQLite state)]
+    Agent -->|list_available_drivers| State
+
+    Agent -->|create_match| Match[["Match confirmed"]]
+    Agent -->|escalate_donation| Escalate[["Escalated to coordinator"]]
+
+    Match --> N1([Donor notified])
+    Match --> N2([Food bank notified])
+    Match --> N3([Driver notified])
+```
+
+Full design, deployment topology, and the standalone AgentCore diagram are in
+[docs/architecture.md](docs/architecture.md).
+
+## Features
+
+- **Autonomous routing, not a chat interface.** The agent is given real tools
+  (`list_food_bank_needs`, `list_available_drivers`) and two terminal actions
+  (`create_match`, `escalate_donation`), and its system prompt requires it to
+  always end by calling one of the two — it cannot just describe what it would
+  do, it has to act.
+- **Real constraint reasoning.** The agent checks food bank need level *and*
+  remaining capacity, driver zone *and* vehicle capacity *and* availability
+  window against the donation's actual pickup window — not a single lookup.
+  It correctly escalates (rather than force a bad match) when, for example, no
+  driver's vehicle capacity covers the donation weight.
+- **Three-party notification on match.** A confirmed match writes distinct,
+  addressed notifications for the donor, the food bank, and the driver — the
+  dashboard shows all three updating live, making the multi-party benefit
+  (the point of a Good Neighbor agent) visible at a glance.
+- **Live activity feed.** Every tool call and decision the agent makes is
+  logged and streamed to the dashboard as it happens.
+- **Deployed twice, same logic.** The identical agent, tools, and system
+  prompt run both in-process in the local dashboard app and standalone on AWS
+  Bedrock AgentCore Runtime — see [AgentCore deployment](#agentcore-deployment)
+  below.
+
 ## Run it locally
 
 Requires Python 3.12+ and AWS credentials with Amazon Bedrock model access (Claude

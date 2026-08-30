@@ -22,16 +22,23 @@ person's productivity.
 
 ## Autonomous flow
 
-```
-Donor submits offer          Agent (Strands, on Bedrock)              Result
-─────────────────────       ──────────────────────────────           ─────────────────
-category, quantity,    ─▶    1. list_food_bank_needs(zone)     ─▶     create_match(...)
-pickup window,                  - current need level per          notifies donor,
-donor zone                      category, remaining capacity      food bank, and driver
-                              2. list_available_drivers(zone)         OR
-                                 - who's free, vehicle capacity   escalate_donation(...)
-                              3. reason about the best fit            flags to a human
-                              4. commit to ONE final action           coordinator
+```mermaid
+flowchart LR
+    Donor([Donor submits offer\ncategory, qty, zone, window]) --> API["FastAPI\nPOST /donations"]
+    API --> Agent["Strands Agent\nClaude Sonnet via Bedrock"]
+
+    Agent -->|list_food_bank_needs| State[(SQLite state)]
+    Agent -->|list_available_drivers| State
+
+    Agent -->|create_match| Match[["Match confirmed"]]
+    Agent -->|escalate_donation| Escalate[["Escalated to coordinator"]]
+
+    Match --> N1([Donor notified])
+    Match --> N2([Food bank notified])
+    Match --> N3([Driver notified])
+
+    State --> Poll["GET /state"]
+    Poll --> Dash["Live dashboard\ndonors / food banks / drivers / activity feed"]
 ```
 
 The agent is given both lookup tools up front and two terminal action tools
@@ -63,8 +70,29 @@ agent activity feed update without a page reload.
 in `us-east-1` (configurable via `AWS_REGION`). Requires AWS credentials with Bedrock
 model access.
 
-## Planned: AWS Bedrock AgentCore deployment
+## Deployment topology
 
-Days 10-12 of the build plan: deploy the agent to Bedrock AgentCore Runtime via the
-`bedrock-agentcore-starter-toolkit`, so the routing agent runs as a managed, scalable
-service rather than only via local `uvicorn`. Not yet done.
+The routing agent exists in two places, sharing the same tools and system prompt:
+the local dashboard app calls it in-process, and it's also deployed standalone to
+AWS Bedrock AgentCore Runtime, invokable independently of the dashboard.
+
+```mermaid
+flowchart TB
+    subgraph Local["Local dashboard app — src/food_rescue_router/"]
+        UI[Dashboard frontend] --> API2["FastAPI + SQLite"]
+        API2 --> Agent1["Strands Agent (in-process)"]
+    end
+
+    subgraph Runtime["AWS Bedrock AgentCore Runtime — deploy/FoodRescueRouterAgent/"]
+        Agent2["Strands Agent (deployed)\nsame tools, same system prompt"]
+    end
+
+    Bedrock[("Amazon Bedrock\nClaude Sonnet")]
+    Agent1 --> Bedrock
+    Agent2 --> Bedrock
+
+    CLI["agentcore invoke"] --> Agent2
+```
+
+See [docs/deploy-agentcore.md](deploy-agentcore.md) for the live runtime ARN and how
+to redeploy.
