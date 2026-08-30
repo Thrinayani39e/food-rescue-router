@@ -1,10 +1,12 @@
 # Food-Rescue Router
 
-An autonomous agent, built on the **Strands Agents SDK** and Amazon Bedrock, that
-routes surplus-food donations (from grocers and restaurants) to the food bank that
-needs them and a volunteer driver who can carry them there — end to end, with no
-human approval step, and only escalating to a human coordinator when no real match
-exists.
+An autonomous **multi-agent** system, built on the **Strands Agents SDK** and Amazon
+Bedrock, that routes surplus-food donations (from grocers and restaurants) to the food
+bank that needs them and a volunteer driver who can carry them there — end to end, with
+no human approval step, and only escalating to a human coordinator when no real match
+exists. A coordinator agent delegates to two specialist agents (Matching and
+Logistics), each independently reasoning over live data, and the result streams live
+to a dashboard with a real-time map of the network.
 
 Built for the **Agents for Humans Hackathon** (Good Neighbor track).
 
@@ -27,31 +29,41 @@ run benefits three separate parties, plus the community the food bank serves.
 
 1. A donor submits a surplus-food offer (category, quantity, pickup window) through
    the dashboard.
-2. The agent looks up real-time food bank need levels and driver availability using
-   its own tools (`list_food_bank_needs`, `list_available_drivers`).
-3. It reasons about the best fit and either:
+2. A **coordinator agent** consults a **Matching Specialist** (its own Strands `Agent`,
+   wrapped as a tool) to pick the best food bank, using live need/capacity data.
+3. The coordinator consults a **Logistics Specialist** (same pattern) to pick the best
+   driver, using live availability/capacity data for the chosen zone and time window.
+4. It reasons about the combined result and either:
    - calls `create_match`, which assigns the donation, marks the driver busy, and
      notifies all three parties, or
-   - calls `escalate_donation` with a specific reason, if nothing viable exists.
-4. The dashboard polls live and shows the donor/food-bank/driver views updating, plus
-   a feed of everything the agent just did.
+   - calls `escalate_donation` with a specific reason, if either specialist found
+     nothing viable.
+5. The dashboard updates **live** (Server-Sent Events, not polling) — the
+   donor/food-bank/driver panels, the activity feed, and an animated route on the map
+   all update the instant the agent acts.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     Donor([Donor submits offer\ncategory, qty, zone, window]) --> API["FastAPI\nPOST /donations"]
-    API --> Agent["Strands Agent\nClaude Sonnet via Bedrock"]
+    API --> Coord["Coordinator Agent"]
 
-    Agent -->|list_food_bank_needs| State[(SQLite state)]
-    Agent -->|list_available_drivers| State
+    Coord -->|consult| Match["Matching Specialist\n(own Agent + own tool)"]
+    Match -->|list_food_bank_needs| State[(SQLite state)]
 
-    Agent -->|create_match| Match[["Match confirmed"]]
-    Agent -->|escalate_donation| Escalate[["Escalated to coordinator"]]
+    Coord -->|consult| Log["Logistics Specialist\n(own Agent + own tool)"]
+    Log -->|list_available_drivers| State
 
-    Match --> N1([Donor notified])
-    Match --> N2([Food bank notified])
-    Match --> N3([Driver notified])
+    Coord -->|create_match| Confirmed[["Match confirmed"]]
+    Coord -->|escalate_donation| Escalate[["Escalated to coordinator"]]
+
+    Confirmed --> N1([Donor notified])
+    Confirmed --> N2([Food bank notified])
+    Confirmed --> N3([Driver notified])
+
+    State --> Bus[["SSE event bus"]]
+    Bus --> Dash["Live dashboard + map"]
 ```
 
 Full design, deployment topology, and the standalone AgentCore diagram are in
@@ -59,26 +71,30 @@ Full design, deployment topology, and the standalone AgentCore diagram are in
 
 ## Features
 
-- **Autonomous routing, not a chat interface.** The agent is given real tools
-  (`list_food_bank_needs`, `list_available_drivers`) and two terminal actions
-  (`create_match`, `escalate_donation`), and its system prompt requires it to
-  always end by calling one of the two — it cannot just describe what it would
-  do, it has to act.
-- **Real constraint reasoning.** The agent checks food bank need level *and*
-  remaining capacity, driver zone *and* vehicle capacity *and* availability
-  window against the donation's actual pickup window — not a single lookup.
-  It correctly escalates (rather than force a bad match) when, for example, no
-  driver's vehicle capacity covers the donation weight.
+- **Multi-agent delegation, not one agent with two lookup tools.** The coordinator
+  never queries food bank or driver data itself — it consults two separate Strands
+  `Agent`s (Matching Specialist, Logistics Specialist), each wrapped as a `@tool`,
+  each independently reasoning over live data before answering.
+- **Autonomous routing, not a chat interface.** The coordinator's system prompt
+  requires consulting both specialists and then always ending by calling
+  `create_match` or `escalate_donation` — it cannot just describe what it would do,
+  it has to act.
+- **Real constraint reasoning.** The Matching Specialist checks need level *and*
+  remaining capacity; the Logistics Specialist checks zone *and* vehicle capacity
+  *and* availability window against the actual pickup window. The system correctly
+  escalates (rather than force a bad match) when, for example, no driver's vehicle
+  capacity covers the donation weight.
 - **Three-party notification on match.** A confirmed match writes distinct,
   addressed notifications for the donor, the food bank, and the driver — the
   dashboard shows all three updating live, making the multi-party benefit
   (the point of a Good Neighbor agent) visible at a glance.
-- **Live activity feed.** Every tool call and decision the agent makes is
-  logged and streamed to the dashboard as it happens.
-- **Deployed twice, same logic.** The identical agent, tools, and system
-  prompt run both in-process in the local dashboard app and standalone on AWS
-  Bedrock AgentCore Runtime — see [AgentCore deployment](#agentcore-deployment)
-  below.
+- **Real-time, not polling.** A server-side SSE stream pushes every activity, match,
+  and escalation to the dashboard the instant it happens — including an animated
+  route on a live map (real Austin, TX coordinates) showing the donation traveling
+  from donor to food bank.
+- **Deployed twice, same logic.** The identical coordinator + specialists run both
+  in-process in the local dashboard app and standalone on AWS Bedrock AgentCore
+  Runtime — see [AgentCore deployment](#agentcore-deployment) below.
 
 ## Run it locally
 
@@ -114,12 +130,13 @@ See [docs/architecture.md](docs/architecture.md) for the full design.
 
 ```
 src/food_rescue_router/
-  agent.py        # Strands Agent definition, system prompt, routing entrypoint
-  tools.py         # @tool functions: lookups + the two terminal actions
-  data_store.py    # SQLite access
-  seed_data.py     # synthetic donors / food banks / drivers
-  api.py           # FastAPI app (POST /donations, GET /state)
-frontend/index.html # live dashboard
+  agent.py        # Coordinator Agent definition, system prompt, routing entrypoint
+  tools.py        # Specialist agents (agents-as-tools) + the two terminal actions
+  model.py        # Shared Bedrock model config
+  data_store.py   # SQLite access + the SSE event bus
+  seed_data.py    # synthetic donors / food banks / drivers (with real coordinates)
+  api.py          # FastAPI app (POST /donations, GET /state, GET /events)
+frontend/index.html # live dashboard: map, panels, activity feed
 ```
 
 ## AgentCore deployment

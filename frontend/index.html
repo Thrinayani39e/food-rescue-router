@@ -4,39 +4,67 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Food-Rescue Router</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/18.0.11/lib/marked.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.4.14/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-  .pulse-dot { animation: pulse 1.4s ease-in-out infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .pulse-dot { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .card-enter { animation: card-enter .25s ease-out; }
+  @keyframes card-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  #map { background: #eef1ee; }
+  .leaflet-popup-content-wrapper { border-radius: 10px; }
 </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
+<body class="bg-[#f6f7f5] text-slate-800 min-h-screen">
 
-<header class="bg-emerald-700 text-white px-6 py-4 shadow flex items-start justify-between gap-4">
-  <div>
-    <h1 class="text-xl font-semibold">Food-Rescue Router</h1>
-    <p class="text-emerald-100 text-sm">An autonomous agent matching surplus food to food banks and volunteer drivers &mdash; in real time.</p>
+<header class="bg-gradient-to-r from-emerald-800 to-emerald-600 text-white">
+  <div class="max-w-7xl mx-auto px-6 py-5 flex items-start justify-between gap-4">
+    <div class="flex items-start gap-3">
+      <div class="shrink-0 w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center mt-0.5">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-5 h-5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-bold tracking-tight">Food-Rescue Router</h1>
+          <span id="live-badge" class="flex items-center gap-1 text-[11px] font-medium bg-white/15 rounded-full px-2 py-0.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 pulse-dot"></span> Live
+          </span>
+        </div>
+        <p class="text-emerald-100 text-sm mt-0.5">An autonomous, multi-agent system matching surplus food to food banks and volunteer drivers &mdash; in real time.</p>
+      </div>
+    </div>
+    <button id="reset-btn" class="shrink-0 text-xs font-medium bg-white/10 hover:bg-white/20 text-white rounded-lg px-3 py-2 transition-colors flex items-center gap-1.5">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+      </svg>
+      Reset demo
+    </button>
   </div>
-  <button id="reset-btn" class="shrink-0 text-xs bg-emerald-800 hover:bg-emerald-900 text-emerald-50 rounded px-3 py-2">
-    Reset demo
-  </button>
 </header>
 
 <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-  <section class="lg:col-span-1 bg-white rounded-xl shadow p-5">
-    <h2 class="font-semibold text-lg mb-3">New donation offer</h2>
+  <section class="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200/70 p-5 h-fit">
+    <h2 class="font-semibold text-slate-900 mb-3">New donation offer</h2>
     <form id="donation-form" class="space-y-3">
       <div>
-        <label class="text-sm text-slate-500">Donor</label>
-        <select id="f-donor" class="w-full border rounded px-3 py-2"></select>
+        <label class="text-xs font-medium uppercase tracking-wide text-slate-400">Donor</label>
+        <select id="f-donor" class="w-full border border-slate-300 rounded-lg px-3 py-2 mt-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"></select>
       </div>
       <div>
-        <label class="text-sm text-slate-500">Category</label>
-        <select id="f-category" class="w-full border rounded px-3 py-2">
+        <label class="text-xs font-medium uppercase tracking-wide text-slate-400">Category</label>
+        <select id="f-category" class="w-full border border-slate-300 rounded-lg px-3 py-2 mt-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500">
           <option value="produce">Produce</option>
           <option value="bakery">Bakery</option>
           <option value="dairy">Dairy</option>
@@ -44,70 +72,140 @@
         </select>
       </div>
       <div>
-        <label class="text-sm text-slate-500">Quantity (lbs)</label>
-        <input id="f-qty" type="number" value="60" class="w-full border rounded px-3 py-2">
+        <label class="text-xs font-medium uppercase tracking-wide text-slate-400">Quantity (lbs)</label>
+        <input id="f-qty" type="number" value="60" class="w-full border border-slate-300 rounded-lg px-3 py-2 mt-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500">
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="text-sm text-slate-500">Window start</label>
-          <input id="f-start" type="text" value="Today 1:00pm" class="w-full border rounded px-3 py-2">
+          <label class="text-xs font-medium uppercase tracking-wide text-slate-400">Window start</label>
+          <input id="f-start" type="text" value="Today 1:00pm" class="w-full border border-slate-300 rounded-lg px-3 py-2 mt-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500">
         </div>
         <div>
-          <label class="text-sm text-slate-500">Window end</label>
-          <input id="f-end" type="text" value="Today 5:00pm" class="w-full border rounded px-3 py-2">
+          <label class="text-xs font-medium uppercase tracking-wide text-slate-400">Window end</label>
+          <input id="f-end" type="text" value="Today 5:00pm" class="w-full border border-slate-300 rounded-lg px-3 py-2 mt-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500">
         </div>
       </div>
-      <button type="submit" id="submit-btn" class="w-full bg-emerald-700 text-white rounded px-3 py-2 font-medium hover:bg-emerald-800">
+      <button type="submit" id="submit-btn" class="w-full bg-emerald-700 text-white rounded-lg px-3 py-2.5 font-medium text-sm hover:bg-emerald-800 transition-colors shadow-sm">
         Submit offer to agent
       </button>
       <div id="agent-result" class="prose prose-sm prose-slate max-w-none mt-2"></div>
     </form>
 
     <div class="mt-4 flex flex-wrap gap-2 text-xs">
-      <button class="scenario-btn border border-emerald-300 text-emerald-700 rounded px-2 py-1 hover:bg-emerald-50"
+      <button class="scenario-btn font-medium border border-emerald-300 text-emerald-700 bg-emerald-50/50 rounded-full px-3 py-1.5 hover:bg-emerald-100 transition-colors"
         data-donor="d1" data-category="produce" data-qty="60" data-start="Today 1:00pm" data-end="Today 5:00pm">
-        Scenario: easy match
+        Easy match
       </button>
-      <button class="scenario-btn border border-amber-300 text-amber-700 rounded px-2 py-1 hover:bg-amber-50"
+      <button class="scenario-btn font-medium border border-amber-300 text-amber-700 bg-amber-50/50 rounded-full px-3 py-1.5 hover:bg-amber-100 transition-colors"
         data-donor="d3" data-category="dairy" data-qty="550" data-start="Today 9:00am" data-end="Today 11:00am">
-        Scenario: tight capacity
+        Tight capacity
       </button>
-      <button class="scenario-btn border border-red-300 text-red-700 rounded px-2 py-1 hover:bg-red-50"
+      <button class="scenario-btn font-medium border border-red-300 text-red-700 bg-red-50/50 rounded-full px-3 py-1.5 hover:bg-red-100 transition-colors"
         data-donor="d2" data-category="dairy" data-qty="5000" data-start="Today 11:50pm" data-end="Today 11:55pm">
-        Scenario: no match &rarr; escalate
+        No match &rarr; escalate
       </button>
     </div>
 
-    <h2 class="font-semibold text-lg mt-6 mb-3">Recent donations</h2>
-    <div id="donations" class="space-y-2 text-sm max-h-64 overflow-y-auto"></div>
+    <h2 class="font-semibold text-slate-900 mt-6 mb-3">Recent donations</h2>
+    <div id="donations" class="space-y-2 text-sm max-h-64 overflow-y-auto pr-1"></div>
 
-    <h2 class="font-semibold text-lg mt-6 mb-3">Live agent activity</h2>
-    <div id="activity" class="space-y-2 text-sm max-h-96 overflow-y-auto"></div>
+    <h2 class="font-semibold text-slate-900 mt-6 mb-3">Live agent activity</h2>
+    <div id="activity" class="space-y-1 text-sm max-h-96 overflow-y-auto pr-1"></div>
   </section>
 
-  <section class="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-    <div>
-      <h3 class="font-semibold mb-2 flex items-center gap-2">Donors <span class="text-xs text-slate-400">who's offering</span></h3>
-      <div id="col-donors" class="space-y-3"></div>
+  <section class="lg:col-span-2 space-y-4">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200/70 overflow-hidden">
+      <div class="px-4 pt-3.5 pb-2 flex items-center justify-between">
+        <h3 class="font-semibold text-slate-900 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4 text-slate-400">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.381 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
+          </svg>
+          Live network map
+        </h3>
+        <div class="flex items-center gap-3 text-[11px] text-slate-500">
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-sky-500"></span>Donor</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-600"></span>Food bank</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Driver</span>
+        </div>
+      </div>
+      <div id="map" class="w-full" style="height: 360px;"></div>
     </div>
-    <div>
-      <h3 class="font-semibold mb-2 flex items-center gap-2">Food banks <span class="text-xs text-slate-400">who needs it</span></h3>
-      <div id="col-foodbanks" class="space-y-3"></div>
-    </div>
-    <div>
-      <h3 class="font-semibold mb-2 flex items-center gap-2">Drivers <span class="text-xs text-slate-400">who's carrying it</span></h3>
-      <div id="col-drivers" class="space-y-3"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <h3 class="flex items-center gap-2 mb-3">
+          <span class="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+            </svg>
+          </span>
+          <span>
+            <div class="font-semibold text-slate-900 leading-tight">Donors</div>
+            <div class="text-xs text-slate-400 leading-tight">who's offering</div>
+          </span>
+        </h3>
+        <div id="col-donors" class="space-y-3"></div>
+      </div>
+      <div>
+        <h3 class="flex items-center gap-2 mb-3">
+          <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18" />
+            </svg>
+          </span>
+          <span>
+            <div class="font-semibold text-slate-900 leading-tight">Food banks</div>
+            <div class="text-xs text-slate-400 leading-tight">who needs it</div>
+          </span>
+        </h3>
+        <div id="col-foodbanks" class="space-y-3"></div>
+      </div>
+      <div>
+        <h3 class="flex items-center gap-2 mb-3">
+          <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+            </svg>
+          </span>
+          <span>
+            <div class="font-semibold text-slate-900 leading-tight">Drivers</div>
+            <div class="text-xs text-slate-400 leading-tight">who's carrying it</div>
+          </span>
+        </h3>
+        <div id="col-drivers" class="space-y-3"></div>
+      </div>
     </div>
   </section>
 </main>
 
 <script>
 const API = "";
+let map, donorsById = {}, foodBanksById = {}, driversById = {}, donationsById = {};
+const markers = { donors: {}, foodBanks: {}, drivers: {} };
+
+function initMap() {
+  map = L.map('map', { scrollWheelZoom: false }).setView([30.283, -97.735], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  }).addTo(map);
+}
+
+function upsertMarker(store, id, lat, lon, color, radius, popupHtml) {
+  if (store[id]) {
+    store[id].setStyle({ color, fillColor: color, radius });
+    store[id].setPopupContent(popupHtml);
+    return;
+  }
+  store[id] = L.circleMarker([lat, lon], {
+    radius, color, fillColor: color, fillOpacity: 0.85, weight: 2,
+  }).addTo(map).bindPopup(popupHtml);
+}
 
 function card(title, body, accent) {
-  return `<div class="bg-white rounded-lg shadow-sm p-3 border-l-4 ${accent}">
-    <div class="font-medium text-sm">${title}</div>
-    <div class="text-xs text-slate-500 mt-1">${body}</div>
+  return `<div class="card-enter bg-white rounded-xl shadow-sm border border-slate-200/70 border-l-4 ${accent} p-3.5 hover:shadow-md transition-shadow">
+    <div class="font-medium text-sm text-slate-900">${title}</div>
+    <div class="text-xs text-slate-500 mt-1 leading-relaxed">${body}</div>
   </div>`;
 }
 
@@ -115,14 +213,23 @@ function renderMarkdown(text) {
   return DOMPurify.sanitize(marked.parse(text));
 }
 
+function badge(label, colorClasses) {
+  return `<span class="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${colorClasses}">${label}</span>`;
+}
+
 function needsBadge(level) {
   const colors = { high: "bg-red-100 text-red-700", medium: "bg-amber-100 text-amber-700", low: "bg-slate-100 text-slate-500" };
-  return `<span class="px-1.5 py-0.5 rounded text-[10px] ${colors[level] || colors.low}">${level}</span>`;
+  return badge(level, colors[level] || colors.low);
 }
 
 async function refresh() {
   const res = await fetch(`${API}/state`);
   const state = await res.json();
+
+  donorsById = Object.fromEntries(state.donors.map(d => [d.id, d]));
+  foodBanksById = Object.fromEntries(state.food_banks.map(fb => [fb.id, fb]));
+  driversById = Object.fromEntries(state.drivers.map(dr => [dr.id, dr]));
+  donationsById = Object.fromEntries(state.donations.map(d => [d.id, d]));
 
   const donorSelect = document.getElementById("f-donor");
   if (!donorSelect.options.length) {
@@ -131,29 +238,33 @@ async function refresh() {
 
   document.getElementById("col-donors").innerHTML = state.donors.map(d => {
     const pending = state.donations.filter(x => x.donor_id === d.id && x.status !== "matched").length;
+    upsertMarker(markers.donors, d.id, d.lat, d.lon, "#0284c7", 7, `<b>${d.name}</b><br>${d.kind} &middot; ${d.zone}`);
     return card(d.name, `${d.kind} &middot; ${d.zone}${pending ? ` &middot; ${pending} pending offer(s)` : ""}`, "border-sky-400");
   }).join("");
 
   document.getElementById("col-foodbanks").innerHTML = state.food_banks.map(fb => {
     const needs = Object.entries(fb.needs).map(([k, v]) => `${k} ${needsBadge(v)}`).join(" ");
     const incoming = state.matches.filter(m => m.food_bank_id === fb.id).length;
-    return card(fb.name, `${fb.zone} &middot; cap ${fb.capacity_lbs} lbs${incoming ? ` &middot; ${incoming} incoming` : ""}<br>${needs}`, "border-emerald-500");
+    upsertMarker(markers.foodBanks, fb.id, fb.lat, fb.lon, "#059669", 9, `<b>${fb.name}</b><br>cap ${fb.capacity_lbs} lbs`);
+    return card(fb.name, `${fb.zone} &middot; cap ${fb.capacity_lbs} lbs${incoming ? ` &middot; ${incoming} incoming` : ""}<div class="mt-1.5 flex flex-wrap gap-1">${needs}</div>`, "border-emerald-500");
   }).join("");
 
   document.getElementById("col-drivers").innerHTML = state.drivers.map(dr => {
-    const badge = dr.status === "assigned" ? '<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700">assigned</span>' : '<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">available</span>';
-    return card(dr.name, `${dr.zone} &middot; up to ${dr.vehicle_capacity_lbs} lbs &middot; ${badge}`, "border-amber-400");
+    const statusChip = dr.status === "assigned" ? badge("assigned", "bg-emerald-100 text-emerald-700") : badge("available", "bg-slate-100 text-slate-500");
+    const color = dr.status === "assigned" ? "#d97706" : "#94a3b8";
+    upsertMarker(markers.drivers, dr.id, dr.lat, dr.lon, color, 6, `<b>${dr.name}</b><br>${dr.status}`);
+    return card(dr.name, `${dr.zone} &middot; up to ${dr.vehicle_capacity_lbs} lbs &middot; ${statusChip}`, "border-amber-400");
   }).join("");
 
   document.getElementById("activity").innerHTML = state.activity.map(a => {
     const t = new Date(a.ts * 1000).toLocaleTimeString();
-    return `<div class="border-b pb-1"><span class="text-slate-400">${t}</span> <span class="font-medium">${a.actor}</span> ${a.action} &mdash; ${a.detail}</div>`;
-  }).join("") || '<p class="text-slate-400">No activity yet.</p>';
+    return `<div class="border-b border-slate-100 py-1.5"><span class="text-slate-400 tabular-nums">${t}</span> <span class="font-medium text-slate-700">${a.actor}</span> <span class="text-slate-500">${a.action}</span> &mdash; ${a.detail}</div>`;
+  }).join("") || '<p class="text-slate-400 text-sm">No activity yet.</p>';
 
   const statusBadge = {
-    pending: '<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">routing&hellip;</span>',
-    matched: '<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700">matched</span>',
-    escalated: '<span class="px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-700">escalated</span>',
+    pending: badge("routing&hellip;", "bg-slate-100 text-slate-500"),
+    matched: badge("matched", "bg-emerald-100 text-emerald-700"),
+    escalated: badge("escalated", "bg-red-100 text-red-700"),
   };
   document.getElementById("donations").innerHTML = state.donations.map(d => {
     return card(
@@ -161,16 +272,64 @@ async function refresh() {
       d.resolution_detail || "Waiting on agent&hellip;",
       d.status === "escalated" ? "border-red-400" : "border-slate-300"
     );
-  }).join("") || '<p class="text-slate-400">No donations yet.</p>';
+  }).join("") || '<p class="text-slate-400 text-sm">No donations yet.</p>';
 }
+
+// Animate a marker traveling donor -> food bank along the route, leaving a faint
+// permanent trace behind -- the visual "a match just happened" moment.
+function animateRoute(donation_id, food_bank_id) {
+  const donation = donationsById[donation_id];
+  const fb = foodBanksById[food_bank_id];
+  if (!donation || !fb) return;
+  const donor = donorsById[donation.donor_id];
+  if (!donor) return;
+
+  const from = [donor.lat, donor.lon];
+  const to = [fb.lat, fb.lon];
+
+  L.polyline([from, to], { color: "#059669", weight: 2, opacity: 0.25, dashArray: "4 4" }).addTo(map);
+
+  const mover = L.circleMarker(from, { radius: 6, color: "#111827", fillColor: "#f59e0b", fillOpacity: 1, weight: 2 }).addTo(map);
+  const durationMs = 2200;
+  const start = performance.now();
+
+  function step(now) {
+    const t = Math.min(1, (now - start) / durationMs);
+    const lat = from[0] + (to[0] - from[0]) * t;
+    const lon = from[1] + (to[1] - from[1]) * t;
+    mover.setLatLng([lat, lon]);
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      setTimeout(() => map.removeLayer(mover), 400);
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+const LOADING_STAGES = [
+  "Consulting the Matching Specialist…",
+  "Consulting the Logistics Specialist…",
+  "Coordinator is weighing both recommendations…",
+];
 
 document.getElementById("donation-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const btn = document.getElementById("submit-btn");
   const resultEl = document.getElementById("agent-result");
   btn.disabled = true;
-  btn.textContent = "Agent is routing this offer…";
   resultEl.innerHTML = "";
+
+  const startedAt = Date.now();
+  let stage = 0;
+  const spinner = `<svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>`;
+  const tick = () => {
+    const secs = Math.floor((Date.now() - startedAt) / 1000);
+    btn.innerHTML = `<span class="inline-flex items-center gap-2 justify-center w-full">${spinner} ${LOADING_STAGES[stage % LOADING_STAGES.length]} (${secs}s)</span>`;
+  };
+  tick();
+  const stageTimer = setInterval(() => { stage++; tick(); }, 4000);
+  const secTimer = setInterval(tick, 1000);
 
   const body = {
     donor_id: document.getElementById("f-donor").value,
@@ -186,6 +345,8 @@ document.getElementById("donation-form").addEventListener("submit", async (e) =>
     body: JSON.stringify(body),
   });
   const data = await res.json();
+  clearInterval(stageTimer);
+  clearInterval(secTimer);
   resultEl.innerHTML = renderMarkdown(data.agent_result || data.error || "Done.");
   btn.disabled = false;
   btn.textContent = "Submit offer to agent";
@@ -207,11 +368,33 @@ document.getElementById("reset-btn").addEventListener("click", async () => {
   await fetch(`${API}/reset`, { method: "POST" });
   document.getElementById("f-donor").innerHTML = "";
   document.getElementById("agent-result").innerHTML = "";
+  Object.values(markers).forEach(store => {
+    Object.values(store).forEach(m => map.removeLayer(m));
+  });
+  markers.donors = {}; markers.foodBanks = {}; markers.drivers = {};
   refresh();
 });
 
+function connectEvents() {
+  const es = new EventSource(`${API}/events`);
+  const liveBadge = document.getElementById("live-badge");
+
+  es.onopen = () => { liveBadge.classList.remove("opacity-50"); };
+  es.onerror = () => { liveBadge.classList.add("opacity-50"); };
+
+  es.onmessage = (e) => {
+    const event = JSON.parse(e.data);
+    if (event.type === "match") {
+      animateRoute(event.donation_id, event.food_bank_id);
+    }
+    refresh();
+  };
+}
+
+initMap();
 refresh();
-setInterval(refresh, 4000);
+connectEvents();
+setInterval(refresh, 15000); // safety-net poll in case the SSE connection silently drops
 </script>
 </body>
 </html>

@@ -1,19 +1,22 @@
-"""FastAPI backend: intake endpoint that triggers the agent, and a state endpoint
-the dashboard polls to show donors, food banks, drivers, matches, and the live
-activity feed updating as the agent acts.
+"""FastAPI backend: intake endpoint that triggers the coordinator agent, a state
+endpoint the dashboard fetches on load, and an SSE stream that pushes live updates
+(activity, matches, escalations, resets) the instant the agent acts, instead of
+making the dashboard poll for them.
 """
+import asyncio
+import json
 import time
 import uuid
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .agent import route_donation
-from .data_store import get_conn, load_needs, log_activity, row_to_dict
+from .data_store import event_bus, get_conn, load_needs, log_activity, row_to_dict
 from .seed_data import reset_and_seed, seed_if_empty
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
@@ -27,6 +30,22 @@ app.add_middleware(
 @app.on_event("startup")
 def startup() -> None:
     seed_if_empty()
+    event_bus.bind_loop(asyncio.get_running_loop())
+
+
+@app.get("/events")
+async def events():
+    """SSE stream: one line per activity/match/escalation/reset, as it happens."""
+    async def gen():
+        queue = event_bus.subscribe()
+        try:
+            while True:
+                event = await queue.get()
+                yield f"data: {json.dumps(event)}\n\n"
+        finally:
+            event_bus.unsubscribe(queue)
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
 
 
 class DonationIn(BaseModel):
