@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Food-Rescue Router</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .pulse-dot { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+<header class="bg-emerald-700 text-white px-6 py-4 shadow">
+  <h1 class="text-xl font-semibold">Food-Rescue Router</h1>
+  <p class="text-emerald-100 text-sm">An autonomous agent matching surplus food to food banks and volunteer drivers &mdash; in real time.</p>
+</header>
+
+<main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <section class="lg:col-span-1 bg-white rounded-xl shadow p-5">
+    <h2 class="font-semibold text-lg mb-3">New donation offer</h2>
+    <form id="donation-form" class="space-y-3">
+      <div>
+        <label class="text-sm text-slate-500">Donor</label>
+        <select id="f-donor" class="w-full border rounded px-3 py-2"></select>
+      </div>
+      <div>
+        <label class="text-sm text-slate-500">Category</label>
+        <select id="f-category" class="w-full border rounded px-3 py-2">
+          <option value="produce">Produce</option>
+          <option value="bakery">Bakery</option>
+          <option value="dairy">Dairy</option>
+          <option value="prepared">Prepared meals</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm text-slate-500">Quantity (lbs)</label>
+        <input id="f-qty" type="number" value="60" class="w-full border rounded px-3 py-2">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-sm text-slate-500">Window start</label>
+          <input id="f-start" type="text" value="Today 1:00pm" class="w-full border rounded px-3 py-2">
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">Window end</label>
+          <input id="f-end" type="text" value="Today 5:00pm" class="w-full border rounded px-3 py-2">
+        </div>
+      </div>
+      <button type="submit" id="submit-btn" class="w-full bg-emerald-700 text-white rounded px-3 py-2 font-medium hover:bg-emerald-800">
+        Submit offer to agent
+      </button>
+      <p id="agent-result" class="text-sm text-slate-600"></p>
+    </form>
+
+    <h2 class="font-semibold text-lg mt-6 mb-3">Live agent activity</h2>
+    <div id="activity" class="space-y-2 text-sm max-h-96 overflow-y-auto"></div>
+  </section>
+
+  <section class="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <h3 class="font-semibold mb-2 flex items-center gap-2">Donors <span class="text-xs text-slate-400">who's offering</span></h3>
+      <div id="col-donors" class="space-y-3"></div>
+    </div>
+    <div>
+      <h3 class="font-semibold mb-2 flex items-center gap-2">Food banks <span class="text-xs text-slate-400">who needs it</span></h3>
+      <div id="col-foodbanks" class="space-y-3"></div>
+    </div>
+    <div>
+      <h3 class="font-semibold mb-2 flex items-center gap-2">Drivers <span class="text-xs text-slate-400">who's carrying it</span></h3>
+      <div id="col-drivers" class="space-y-3"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const API = "";
+
+function card(title, body, accent) {
+  return `<div class="bg-white rounded-lg shadow-sm p-3 border-l-4 ${accent}">
+    <div class="font-medium text-sm">${title}</div>
+    <div class="text-xs text-slate-500 mt-1">${body}</div>
+  </div>`;
+}
+
+function needsBadge(level) {
+  const colors = { high: "bg-red-100 text-red-700", medium: "bg-amber-100 text-amber-700", low: "bg-slate-100 text-slate-500" };
+  return `<span class="px-1.5 py-0.5 rounded text-[10px] ${colors[level] || colors.low}">${level}</span>`;
+}
+
+async function refresh() {
+  const res = await fetch(`${API}/state`);
+  const state = await res.json();
+
+  const donorSelect = document.getElementById("f-donor");
+  if (!donorSelect.options.length) {
+    donorSelect.innerHTML = state.donors.map(d => `<option value="${d.id}">${d.name} (${d.zone})</option>`).join("");
+  }
+
+  document.getElementById("col-donors").innerHTML = state.donors.map(d => {
+    const pending = state.donations.filter(x => x.donor_id === d.id && x.status !== "matched").length;
+    return card(d.name, `${d.kind} &middot; ${d.zone}${pending ? ` &middot; ${pending} pending offer(s)` : ""}`, "border-sky-400");
+  }).join("");
+
+  document.getElementById("col-foodbanks").innerHTML = state.food_banks.map(fb => {
+    const needs = Object.entries(fb.needs).map(([k, v]) => `${k} ${needsBadge(v)}`).join(" ");
+    const incoming = state.matches.filter(m => m.food_bank_id === fb.id).length;
+    return card(fb.name, `${fb.zone} &middot; cap ${fb.capacity_lbs} lbs${incoming ? ` &middot; ${incoming} incoming` : ""}<br>${needs}`, "border-emerald-500");
+  }).join("");
+
+  document.getElementById("col-drivers").innerHTML = state.drivers.map(dr => {
+    const badge = dr.status === "assigned" ? '<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700">assigned</span>' : '<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">available</span>';
+    return card(dr.name, `${dr.zone} &middot; up to ${dr.vehicle_capacity_lbs} lbs &middot; ${badge}`, "border-amber-400");
+  }).join("");
+
+  document.getElementById("activity").innerHTML = state.activity.map(a => {
+    const t = new Date(a.ts * 1000).toLocaleTimeString();
+    return `<div class="border-b pb-1"><span class="text-slate-400">${t}</span> <span class="font-medium">${a.actor}</span> ${a.action} &mdash; ${a.detail}</div>`;
+  }).join("") || '<p class="text-slate-400">No activity yet.</p>';
+}
+
+document.getElementById("donation-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("submit-btn");
+  const resultEl = document.getElementById("agent-result");
+  btn.disabled = true;
+  btn.textContent = "Agent is routing this offer…";
+  resultEl.textContent = "";
+
+  const body = {
+    donor_id: document.getElementById("f-donor").value,
+    category: document.getElementById("f-category").value,
+    quantity_lbs: parseInt(document.getElementById("f-qty").value, 10),
+    pickup_window_start: document.getElementById("f-start").value,
+    pickup_window_end: document.getElementById("f-end").value,
+  };
+
+  const res = await fetch(`${API}/donations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  resultEl.textContent = data.agent_result || data.error || "Done.";
+  btn.disabled = false;
+  btn.textContent = "Submit offer to agent";
+  refresh();
+});
+
+refresh();
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>
