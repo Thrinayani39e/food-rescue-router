@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Windfall mark">
+  <title>Windfall — the catch</title>
+  <g fill="none" stroke="#b68235" stroke-width="2.1" stroke-linecap="round">
+    <path d="M8 27.5c0 8.2 7.2 12.5 16 12.5s16-4.3 16-12.5"></path>
+    <path d="M30.5 13.2c-6.1 2.1-10.2 6.7-11.6 13.1" stroke-dasharray="1.6 4.2" stroke-width="1.8"></path>
+  </g>
+  <circle cx="32.6" cy="9.6" r="3.4" fill="#b68235"></circle>
+</svg>

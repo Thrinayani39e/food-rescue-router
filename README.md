@@ -1,4 +1,4 @@
-# Food-Rescue Router
+# Windfall — Food-Rescue Router
 
 An autonomous **multi-agent** system, built on the **Strands Agents SDK** and Amazon
 Bedrock, that routes surplus-food donations (from grocers and restaurants) to the food
@@ -7,6 +7,12 @@ no human approval step, and only escalating to a human coordinator when no real 
 exists. A coordinator agent delegates to two specialist agents (Matching and
 Logistics), each independently reasoning over live data, and the result streams live
 to a dashboard with a real-time map of the network.
+
+**Windfall** is the product brand — the dashboard, the "Log a windfall" flow, the
+network map. "Food-Rescue Router" is the underlying repo/system name. Visual design
+and copy for the dashboard were designed with Claude Design and integrated here
+against the real backend (no placeholder data ships in the running app — every number
+on screen is computed from live state).
 
 Built for the **Agents for Humans Hackathon** (Good Neighbor track).
 
@@ -136,7 +142,12 @@ src/food_rescue_router/
   data_store.py   # SQLite access + the SSE event bus
   seed_data.py    # synthetic donors / food banks / drivers (with real coordinates)
   api.py          # FastAPI app (POST /donations, GET /state, GET /events)
-frontend/index.html # live dashboard: map, panels, activity feed
+frontend/
+  index.html         # Windfall dashboard: hero stats, map, Coordinator panel,
+                      # ledger, activity feed, network directories
+  windfall-map.js     # <windfall-map> custom element -- real Leaflet map,
+                      # data-driven from GET /state, animates routes on match
+  assets/             # Windfall logo mark + lockup (SVG)
 ```
 
 ## AgentCore deployment
