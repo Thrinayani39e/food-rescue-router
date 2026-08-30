@@ -74,22 +74,31 @@ def create_match(donation_id: str, food_bank_id: str, driver_id: str, pickup_tim
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
         (match_id, donation_id, food_bank_id, driver_id, pickup_time, reasoning, time.time()),
     )
-    conn.execute("UPDATE donations SET status = 'matched' WHERE id = ?", (donation_id,))
     conn.execute("UPDATE drivers SET status = 'assigned' WHERE id = ?", (driver_id,))
 
     donor_row = conn.execute(
-        "SELECT donors.name AS donor_name FROM donations JOIN donors ON donors.id = donations.donor_id "
-        "WHERE donations.id = ?",
+        "SELECT donors.name AS donor_name, donations.quantity_lbs AS quantity_lbs "
+        "FROM donations JOIN donors ON donors.id = donations.donor_id WHERE donations.id = ?",
         (donation_id,),
     ).fetchone()
+    if donor_row is not None:
+        conn.execute(
+            "UPDATE food_banks SET capacity_lbs = MAX(0, capacity_lbs - ?) WHERE id = ?",
+            (donor_row["quantity_lbs"], food_bank_id),
+        )
     fb_row = conn.execute("SELECT name FROM food_banks WHERE id = ?", (food_bank_id,)).fetchone()
     driver_row = conn.execute("SELECT name FROM drivers WHERE id = ?", (driver_id,)).fetchone()
-    conn.commit()
-    conn.close()
 
     donor_name = donor_row["donor_name"] if donor_row else donation_id
     fb_name = fb_row["name"] if fb_row else food_bank_id
     driver_name = driver_row["name"] if driver_row else driver_id
+
+    conn.execute(
+        "UPDATE donations SET status = 'matched', resolution_detail = ? WHERE id = ?",
+        (f"-> {fb_name} via {driver_name} at {pickup_time}", donation_id),
+    )
+    conn.commit()
+    conn.close()
 
     log_activity("agent", "matched", f"{reasoning} Pickup {pickup_time}.")
     log_activity(f"donor:{donation_id}", "notified", f"Pickup confirmed by {driver_name} at {pickup_time} for {fb_name}.")
@@ -110,7 +119,10 @@ def escalate_donation(donation_id: str, reason: str) -> str:
         reason: Why no match was found.
     """
     conn = get_conn()
-    conn.execute("UPDATE donations SET status = 'escalated' WHERE id = ?", (donation_id,))
+    conn.execute(
+        "UPDATE donations SET status = 'escalated', resolution_detail = ? WHERE id = ?",
+        (reason, donation_id),
+    )
     conn.commit()
     conn.close()
     log_activity("agent", "escalated", f"Donation {donation_id}: {reason}")

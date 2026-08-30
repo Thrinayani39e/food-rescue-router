@@ -13,9 +13,14 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
-<header class="bg-emerald-700 text-white px-6 py-4 shadow">
-  <h1 class="text-xl font-semibold">Food-Rescue Router</h1>
-  <p class="text-emerald-100 text-sm">An autonomous agent matching surplus food to food banks and volunteer drivers &mdash; in real time.</p>
+<header class="bg-emerald-700 text-white px-6 py-4 shadow flex items-start justify-between gap-4">
+  <div>
+    <h1 class="text-xl font-semibold">Food-Rescue Router</h1>
+    <p class="text-emerald-100 text-sm">An autonomous agent matching surplus food to food banks and volunteer drivers &mdash; in real time.</p>
+  </div>
+  <button id="reset-btn" class="shrink-0 text-xs bg-emerald-800 hover:bg-emerald-900 text-emerald-50 rounded px-3 py-2">
+    Reset demo
+  </button>
 </header>
 
 <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -55,6 +60,24 @@
       </button>
       <p id="agent-result" class="text-sm text-slate-600"></p>
     </form>
+
+    <div class="mt-4 flex flex-wrap gap-2 text-xs">
+      <button class="scenario-btn border border-emerald-300 text-emerald-700 rounded px-2 py-1 hover:bg-emerald-50"
+        data-donor="d1" data-category="produce" data-qty="60" data-start="Today 1:00pm" data-end="Today 5:00pm">
+        Scenario: easy match
+      </button>
+      <button class="scenario-btn border border-amber-300 text-amber-700 rounded px-2 py-1 hover:bg-amber-50"
+        data-donor="d3" data-category="dairy" data-qty="550" data-start="Today 9:00am" data-end="Today 11:00am">
+        Scenario: tight capacity
+      </button>
+      <button class="scenario-btn border border-red-300 text-red-700 rounded px-2 py-1 hover:bg-red-50"
+        data-donor="d2" data-category="dairy" data-qty="5000" data-start="Today 11:50pm" data-end="Today 11:55pm">
+        Scenario: no match &rarr; escalate
+      </button>
+    </div>
+
+    <h2 class="font-semibold text-lg mt-6 mb-3">Recent donations</h2>
+    <div id="donations" class="space-y-2 text-sm max-h-64 overflow-y-auto"></div>
 
     <h2 class="font-semibold text-lg mt-6 mb-3">Live agent activity</h2>
     <div id="activity" class="space-y-2 text-sm max-h-96 overflow-y-auto"></div>
@@ -120,6 +143,19 @@ async function refresh() {
     const t = new Date(a.ts * 1000).toLocaleTimeString();
     return `<div class="border-b pb-1"><span class="text-slate-400">${t}</span> <span class="font-medium">${a.actor}</span> ${a.action} &mdash; ${a.detail}</div>`;
   }).join("") || '<p class="text-slate-400">No activity yet.</p>';
+
+  const statusBadge = {
+    pending: '<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">routing&hellip;</span>',
+    matched: '<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700">matched</span>',
+    escalated: '<span class="px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-700">escalated</span>',
+  };
+  document.getElementById("donations").innerHTML = state.donations.map(d => {
+    return card(
+      `${d.donor_name} &middot; ${d.quantity_lbs} lbs ${d.category} ${statusBadge[d.status] || ""}`,
+      d.resolution_detail || "Waiting on agent&hellip;",
+      d.status === "escalated" ? "border-red-400" : "border-slate-300"
+    );
+  }).join("") || '<p class="text-slate-400">No donations yet.</p>';
 }
 
 document.getElementById("donation-form").addEventListener("submit", async (e) => {
@@ -147,6 +183,24 @@ document.getElementById("donation-form").addEventListener("submit", async (e) =>
   resultEl.textContent = data.agent_result || data.error || "Done.";
   btn.disabled = false;
   btn.textContent = "Submit offer to agent";
+  refresh();
+});
+
+document.querySelectorAll(".scenario-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.getElementById("f-donor").value = btn.dataset.donor;
+    document.getElementById("f-category").value = btn.dataset.category;
+    document.getElementById("f-qty").value = btn.dataset.qty;
+    document.getElementById("f-start").value = btn.dataset.start;
+    document.getElementById("f-end").value = btn.dataset.end;
+    document.getElementById("donation-form").requestSubmit();
+  });
+});
+
+document.getElementById("reset-btn").addEventListener("click", async () => {
+  await fetch(`${API}/reset`, { method: "POST" });
+  document.getElementById("f-donor").innerHTML = "";
+  document.getElementById("agent-result").textContent = "";
   refresh();
 });
 

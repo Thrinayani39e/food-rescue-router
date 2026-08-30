@@ -30,14 +30,7 @@ DRIVERS = [
 ]
 
 
-def seed_if_empty() -> None:
-    init_db()
-    conn = get_conn()
-    count = conn.execute("SELECT COUNT(*) AS n FROM donors").fetchone()["n"]
-    if count:
-        conn.close()
-        return
-
+def _insert_seed_rows(conn) -> None:
     conn.executemany(
         "INSERT INTO donors (id, name, kind, zone) VALUES (?, ?, ?, ?)", DONORS
     )
@@ -49,5 +42,28 @@ def seed_if_empty() -> None:
         "INSERT INTO drivers (id, name, zone, vehicle_capacity_lbs, available_from, available_to) VALUES (?, ?, ?, ?, ?, ?)",
         DRIVERS,
     )
+
+
+def seed_if_empty() -> None:
+    init_db()
+    conn = get_conn()
+    count = conn.execute("SELECT COUNT(*) AS n FROM donors").fetchone()["n"]
+    if count:
+        conn.close()
+        return
+    _insert_seed_rows(conn)
+    conn.commit()
+    conn.close()
+
+
+def reset_and_seed() -> None:
+    """Wipe all state and reseed from scratch -- lets a demo be re-run from a clean slate
+    without restarting the server, so a bad take doesn't require a full restart.
+    """
+    init_db()
+    conn = get_conn()
+    for table in ("matches", "donations", "drivers", "food_banks", "donors", "activity_log"):
+        conn.execute(f"DELETE FROM {table}")
+    _insert_seed_rows(conn)
     conn.commit()
     conn.close()

@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from .agent import route_donation
 from .data_store import get_conn, load_needs, log_activity, row_to_dict
-from .seed_data import seed_if_empty
+from .seed_data import reset_and_seed, seed_if_empty
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 
@@ -86,7 +86,8 @@ def get_state():
 
     drivers = [row_to_dict(r) for r in conn.execute("SELECT * FROM drivers").fetchall()]
     donations = [row_to_dict(r) for r in conn.execute(
-        "SELECT * FROM donations ORDER BY created_at DESC"
+        "SELECT donations.*, donors.name AS donor_name FROM donations "
+        "JOIN donors ON donors.id = donations.donor_id ORDER BY donations.created_at DESC"
     ).fetchall()]
     matches = [row_to_dict(r) for r in conn.execute(
         "SELECT * FROM matches ORDER BY created_at DESC"
@@ -104,6 +105,15 @@ def get_state():
         "matches": matches,
         "activity": activity,
     }
+
+
+@app.post("/reset")
+def reset_demo():
+    """Wipe all donations/matches/activity and reseed fresh donors/food banks/drivers,
+    so a demo can be re-run cleanly without restarting the server.
+    """
+    reset_and_seed()
+    return {"status": "reset"}
 
 
 @app.get("/")

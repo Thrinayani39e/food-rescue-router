@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS donations (
     pickup_window_start TEXT NOT NULL,
     pickup_window_end TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',   -- pending | matched | escalated
+    resolution_detail TEXT NOT NULL DEFAULT '',  -- e.g. "-> Downtown Community Pantry via Sam R." or an escalation reason
     created_at REAL NOT NULL
 );
 
