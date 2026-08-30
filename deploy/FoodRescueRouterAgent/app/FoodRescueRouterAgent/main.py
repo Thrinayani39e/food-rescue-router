@@ -1,7 +1,8 @@
-"""AgentCore Runtime entrypoint for the food-rescue routing agent.
+"""AgentCore Runtime entrypoint for the food-rescue routing coordinator.
 
-This is a standalone deployment of the same routing agent, tools, and system prompt
-used by the local dashboard app (../../../src/food_rescue_router) -- see the sibling
+This is a standalone deployment of the same multi-agent system (coordinator +
+Matching Specialist + Logistics Specialist, see food_rescue_router/tools.py) used by
+the local dashboard app (../../../src/food_rescue_router) -- see the sibling
 food_rescue_router/ package here, which is a deployable copy (AgentCore Runtime
 packages this app directory in isolation, so it can't import across the repo's
 ../../../src path). It seeds its own synthetic donors/food banks/drivers on cold
@@ -18,33 +19,36 @@ from typing import Any
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from strands import Agent
 from strands.agent.conversation_manager.null_conversation_manager import NullConversationManager
-from strands.models.bedrock import BedrockModel
 
+from food_rescue_router.model import build_model
 from food_rescue_router.seed_data import seed_if_empty
-from food_rescue_router.tools import ALL_TOOLS
+from food_rescue_router.tools import COORDINATOR_TOOLS
 
 app = BedrockAgentCoreApp()
 log = app.logger
 
 seed_if_empty()
 
-SYSTEM_PROMPT = """You are the routing agent for a city food-rescue network. You receive one
+SYSTEM_PROMPT = """You are the coordinator for a city food-rescue network. You receive one
 surplus-food donation offer at a time and must autonomously get it to a food bank that
 needs it, via a volunteer driver who can carry it there in time.
 
-Rules:
-- Prefer a food bank whose need level for the donation's category is "medium" or "high",
-  and that has enough remaining capacity for the quantity offered.
-- Prefer a driver in the same zone as the donor (or the matched food bank) whose vehicle
-  capacity covers the donation's weight, and who is available within the pickup window.
-- Use list_food_bank_needs and list_available_drivers to see current, real options before
-  deciding -- do not guess.
-- Once you've picked the best food bank and driver, call create_match exactly once to
-  confirm it. Pick a pickup_time inside the donation's pickup window.
-- If, after checking real alternatives, nothing viable exists (no food bank wants/fits the
-  category, or no driver is available/capable), call escalate_donation with a specific reason.
-- Always end by having called either create_match or escalate_donation -- never leave a
-  donation unresolved.
+You do not look up food banks or drivers yourself -- you delegate:
+1. Call consult_matching_specialist with the donation's category, quantity, and donor zone.
+   It will name one food bank (or say none fit).
+2. Call consult_logistics_specialist with the quantity, the pickup zone (the food bank's zone
+   if one was found, otherwise the donor's zone), and the donation's pickup window. It will
+   name one driver (or say none qualify).
+3. If both specialists found a real fit: call create_match exactly once, with a pickup_time
+   inside the donation's window and reasoning that combines both specialists' points.
+4. If either specialist found nothing viable: call escalate_donation with a specific reason
+   combining what both specialists found.
+
+Always end by having called either create_match or escalate_donation -- never leave a
+donation unresolved, and never skip consulting both specialists first.
+
+Write your final summary in a clear, professional tone: short prose or a compact
+bullet list, minimal formatting. Do not use emoji.
 """
 
 
@@ -66,10 +70,11 @@ def agent_factory():
         if len(cache) >= 128:
             cache.popitem(last=False)
         cache[session_id] = Agent(
-            model=BedrockModel(model_id="us.anthropic.claude-sonnet-4-6"),
+            model=build_model(),
             system_prompt=SYSTEM_PROMPT,
-            tools=ALL_TOOLS,
+            tools=COORDINATOR_TOOLS,
             conversation_manager=_make_conversation_manager(),
+            callback_handler=None,
         )
         return cache[session_id]
 

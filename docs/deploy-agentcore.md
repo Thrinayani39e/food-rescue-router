@@ -1,13 +1,14 @@
 # Deploying the routing agent to AWS Bedrock AgentCore Runtime
 
 `deploy/FoodRescueRouterAgent/` is a standalone AgentCore Runtime deployment of the
-same routing agent -- same tools, same system prompt, same Strands Agent -- as the
-local dashboard app (`src/food_rescue_router/`). It's a separate deployable unit
-because AgentCore Runtime packages an isolated app directory and expects a single
-`/invocations` entrypoint, not a multi-route FastAPI app with a dashboard. The
-`food_rescue_router/` subpackage inside it (`data_store.py`, `seed_data.py`,
-`tools.py`) is a deployable copy of the same logic, adapted to use the container's
-`/tmp` for its SQLite state instead of a path relative to the main project.
+same multi-agent system -- coordinator + Matching Specialist + Logistics Specialist,
+same tools, same prompts -- as the local dashboard app (`src/food_rescue_router/`).
+It's a separate deployable unit because AgentCore Runtime packages an isolated app
+directory and expects a single `/invocations` entrypoint, not a multi-route FastAPI
+app with a dashboard. The `food_rescue_router/` subpackage inside it (`data_store.py`,
+`seed_data.py`, `tools.py`, `model.py`) is a deployable copy of the same logic,
+adapted to use the container's `/tmp` for its SQLite state instead of a path relative
+to the main project.
 
 ## What's here
 
@@ -59,12 +60,18 @@ Deployed 2026-08-30 to `us-east-1`:
 - **Runtime ARN**: `arn:aws:bedrock-agentcore:us-east-1:141353495650:runtime/FoodRescueRouterAgent_FoodRescueRouterAgent-FDKqFqAfP3`
 - **Stack**: `AgentCore-FoodRescueRouterAgent-default`
 
-Verified with a real `agentcore invoke` call end to end: given a 40 lb bakery
-donation, the deployed agent correctly picked the food bank with the highest
-need in the same zone, noticed one candidate driver's availability window was
-too tight for the pickup time, and picked a better-fitting driver instead —
-then called `create_match` for real. Same reasoning quality as the local app,
-running as an actual AWS-hosted service.
+Verified with real `agentcore invoke` calls end to end:
+- A 40 lb bakery donation: the deployed agent correctly picked the food bank with
+  the highest need in the same zone, noticed one candidate driver's availability
+  window was too tight for the pickup time, and picked a better-fitting driver
+  instead, then called `create_match` for real.
+- Re-verified after the multi-agent rework: a 550 lb dairy donation with a
+  550+ lb capacity requirement correctly triggered `escalate_donation` after the
+  Matching Specialist found a viable food bank but the Logistics Specialist
+  confirmed no driver's vehicle could carry the load -- the deployed coordinator
+  genuinely delegates to both specialists rather than deciding alone.
+
+Same reasoning quality as the local app, running as an actual AWS-hosted service.
 
 ## Deploy for real
 
