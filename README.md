@@ -16,6 +16,10 @@ on screen is computed from live state).
 
 Built for the **Agents for Humans Hackathon** (Good Neighbor track).
 
+**Live demo**: [http://52.201.234.155](http://52.201.234.155) — the actual dashboard,
+deployed on an AWS EC2 instance, running the real multi-agent Coordinator against live
+Amazon Bedrock calls. Not a mockup — submit a donation and watch it route for real.
+
 ## Why this exists
 
 Food-rescue coordination today runs on phone calls and spreadsheets, so good matches
@@ -159,11 +163,20 @@ Verified end to end with a real `agentcore invoke` call. See
 [docs/deploy-agentcore.md](docs/deploy-agentcore.md) for how to run it locally or
 redeploy it.
 
+## Dashboard deployment
+
+The full dashboard (`Dockerfile` at the repo root) is built as a container image,
+pushed to Amazon ECR, and run on an EC2 instance (`t3.small`, IAM instance role
+scoped to `bedrock:InvokeModel`/`Converse` and ECR pull only) with a security group
+open on port 80. See the live link above. To redeploy: `docker build`, `docker push`
+to the ECR repo, then `docker pull` + `docker run` on the instance (or replace the
+instance with a fresh one running the same user-data).
+
 ## Status
 
-Core agent + API + dashboard working end to end against live Bedrock. Routing
-agent also deployed standalone to AWS Bedrock AgentCore Runtime and verified live.
-Demo video not yet done — see the hackathon build plan.
+Core agent + API + dashboard working end to end against live Bedrock, deployed
+publicly. Routing agent also deployed standalone to AWS Bedrock AgentCore Runtime
+and verified live. Demo video in progress — see the hackathon build plan.
 
 ## License
 

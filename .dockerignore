@@ -1,0 +1,10 @@
+.venv
+rescue.db
+tests
+deploy
+docs
+.git
+.pytest_cache
+__pycache__
+*.pyc
+demo-footage
