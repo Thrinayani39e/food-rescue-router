@@ -14,6 +14,7 @@ Invoke with a payload like:
                 "- category: produce\\n- quantity_lbs: 60\\n- pickup_window: Today 1pm to Today 5pm\\n\\n"
                 "Route this donation now."}
 """
+import os
 from collections import OrderedDict
 from typing import Any
 
@@ -21,6 +22,7 @@ from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from strands import Agent
 from strands.agent.conversation_manager.null_conversation_manager import NullConversationManager
 
+from food_rescue_router.memory import get_session_manager
 from food_rescue_router.model import build_model
 from food_rescue_router.seed_data import seed_if_empty
 from food_rescue_router.tools import COORDINATOR_TOOLS
@@ -79,6 +81,7 @@ def agent_factory():
             system_prompt=SYSTEM_PROMPT,
             tools=COORDINATOR_TOOLS,
             conversation_manager=_make_conversation_manager(),
+            session_manager=get_session_manager(os.environ.get("AWS_REGION", "us-east-1")),
             callback_handler=None,
         )
         return cache[session_id]

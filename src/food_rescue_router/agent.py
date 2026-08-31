@@ -3,8 +3,11 @@ Matching Specialist and a Logistics Specialist (each a separate Strands Agent,
 wrapped as a tool -- see tools.py), then commits to a match or escalates. No
 human approval step in the loop.
 """
+import os
+
 from strands import Agent
 
+from .memory import get_session_manager
 from .model import build_model
 from .tools import COORDINATOR_TOOLS
 
@@ -30,6 +33,11 @@ Work in this order:
 Always end by having called either create_match or escalate_donation -- never leave a
 donation unresolved, and never skip the safety check or either specialist.
 
+You have memory of earlier donations you've routed in this session (via AgentCore
+Memory) -- if a driver or food bank you're about to recommend was already committed
+to another load moments ago, notice that rather than treating every donation as if it
+were the network's first.
+
 Write your final summary in a clear, professional tone: short prose or a compact
 bullet list, minimal formatting. Do not use emoji.
 """
@@ -39,7 +47,11 @@ def build_agent() -> Agent:
     # No console callback handler: this runs inside the API server, and the SDK's default
     # handler streams raw model tokens to stdout, which crashes on Windows consoles (cp1252)
     # if the model emits non-ASCII characters.
-    return Agent(model=build_model(), tools=COORDINATOR_TOOLS, system_prompt=SYSTEM_PROMPT, callback_handler=None)
+    session_manager = get_session_manager(os.environ.get("AWS_REGION", "us-east-1"))
+    return Agent(
+        model=build_model(), tools=COORDINATOR_TOOLS, system_prompt=SYSTEM_PROMPT,
+        callback_handler=None, session_manager=session_manager,
+    )
 
 
 def route_donation(donation: dict) -> str:
