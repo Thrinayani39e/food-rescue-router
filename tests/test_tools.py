@@ -31,15 +31,43 @@ def test_seed_and_query(tmp_path, monkeypatch):
     assert len(drivers) == 4
 
 
-def test_list_food_bank_needs_filters_by_zone(tmp_path, monkeypatch):
+def test_list_food_bank_needs_sorts_by_real_distance(tmp_path, monkeypatch):
     _use_temp_db(tmp_path, monkeypatch)
     from food_rescue_router.seed_data import seed_if_empty
     from food_rescue_router.tools import list_food_bank_needs
     seed_if_empty()
 
-    downtown = list_food_bank_needs("Downtown")
-    assert all(fb["zone"] == "Downtown" for fb in downtown)
-    assert len(downtown) == 1
+    ranked = list_food_bank_needs("d1")  # Green Aisle Market, Downtown
+    assert len(ranked) == 3
+    assert all("distance_miles" in fb for fb in ranked)
+    # sorted ascending by real distance, not by zone label
+    distances = [fb["distance_miles"] for fb in ranked]
+    assert distances == sorted(distances)
+    # the donor's own (Downtown) food bank should be closest
+    assert ranked[0]["zone"] == "Downtown"
+
+
+def test_list_available_drivers_sorts_by_real_distance(tmp_path, monkeypatch):
+    _use_temp_db(tmp_path, monkeypatch)
+    from food_rescue_router.seed_data import seed_if_empty
+    from food_rescue_router.tools import list_available_drivers
+    seed_if_empty()
+
+    ranked = list_available_drivers("d1")
+    assert len(ranked) == 4
+    distances = [d["distance_miles"] for d in ranked]
+    assert distances == sorted(distances)
+
+
+def test_food_safety_window_flags_perishable_overrun(tmp_path, monkeypatch):
+    _use_temp_db(tmp_path, monkeypatch)
+    from food_rescue_router.tools import check_food_safety_window
+
+    safe = check_food_safety_window("produce", "Today 1:00pm", "Today 5:00pm")
+    assert safe.startswith("SAFE")
+
+    unsafe = check_food_safety_window("dairy", "Today 9:00am", "Today 5:00pm")  # 8h > 6h dairy limit
+    assert unsafe.startswith("UNSAFE")
 
 
 def test_create_match_updates_state_and_logs(tmp_path, monkeypatch):
