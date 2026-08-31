@@ -27,8 +27,9 @@ FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 # to run unattended), so without this the shared SQLite state would only ever accumulate:
 # food banks would drain to zero capacity and every driver would end up "assigned"
 # forever the first time enough visitors clicked around it. Auto-reset is what keeps a
-# public, no-login demo link clean for whoever tries it next.
-AUTO_RESET_MINUTES = 20
+# public, no-login demo link clean for whoever tries it next. Set AUTO_RESET_MINUTES=0
+# to disable it entirely (e.g. for a long local recording session).
+AUTO_RESET_MINUTES = int(os.environ.get("AUTO_RESET_MINUTES", "20"))
 
 app = FastAPI(title="Food-Rescue Router")
 app.add_middleware(
@@ -37,7 +38,7 @@ app.add_middleware(
 
 
 async def _auto_reset_loop() -> None:
-    while True:
+    while AUTO_RESET_MINUTES > 0:
         await asyncio.sleep(AUTO_RESET_MINUTES * 60)
         reset_and_seed()
         event_bus.publish({"type": "auto_reset"})
