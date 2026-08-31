@@ -10,6 +10,7 @@ is cached in-process so repeated agent builds don't re-create or re-look-it-up e
 call.
 """
 import logging
+import os
 import time
 
 from bedrock_agentcore.memory import MemoryClient
@@ -19,7 +20,12 @@ from bedrock_agentcore.memory.integrations.strands.session_manager import AgentC
 logger = logging.getLogger(__name__)
 
 MEMORY_NAME = "WindfallCoordinatorMemory"
-SESSION_ID = "windfall-network-session"
+# Overridable so a local session (e.g. recording a demo) can start from a blank
+# memory instead of inheriting every donation ever routed locally under the
+# default session -- real accumulated history is the point of this feature, but
+# it means a long-lived default session eventually "remembers" every driver as
+# already committed.
+SESSION_ID = os.environ.get("WINDFALL_MEMORY_SESSION_ID", "windfall-network-session")
 ACTOR_ID = "coordinator"
 
 _memory_id_cache: str | None = None
