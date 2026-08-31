@@ -28,6 +28,27 @@ windfall-map .wf-pulse{border-radius:50%;border:1.5px solid ${GOLD};animation:wf
 windfall-map .leaflet-tooltip{background:#f3f2f2;border:1px solid rgba(32,31,29,.16);border-radius:3px;box-shadow:0 1px 2px rgba(45,43,43,.14);color:${INK};font-size:11px;padding:4px 8px;font-family:Lora,Georgia,serif}
 windfall-map .leaflet-tooltip::before{display:none}
 windfall-map .wf-veil{position:absolute;inset:0;pointer-events:none;z-index:450;box-shadow:inset 0 0 60px 12px rgba(45,43,43,.13)}
+
+/* Dark theme: same rules the page uses to pick its palette (see index.html) --
+   default-dark-if-system-prefers-it, or forced by the header toggle. */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) windfall-map{background:#232019}
+  html:not([data-theme="light"]) windfall-map .leaflet-tile-pane{filter:sepia(.35) saturate(.4) contrast(.85) brightness(.55) invert(.92) hue-rotate(180deg)}
+  html:not([data-theme="light"]) windfall-map .leaflet-container{background:#232019}
+  html:not([data-theme="light"]) windfall-map .leaflet-control-attribution{background:rgba(24,23,21,.72);color:#a39e98}
+  html:not([data-theme="light"]) windfall-map .leaflet-control-attribution a{color:#e3b45c}
+  html:not([data-theme="light"]) windfall-map .leaflet-bar a{background:rgba(35,32,28,.9);color:#ece9e3;border-bottom-color:rgba(255,255,255,.14)}
+  html:not([data-theme="light"]) windfall-map .leaflet-bar a:hover{background:rgba(227,180,92,.16);color:#e3b45c}
+  html:not([data-theme="light"]) windfall-map .leaflet-tooltip{background:#2b2823;border-color:rgba(255,255,255,.16);color:#ece9e3}
+}
+html[data-theme="dark"] windfall-map{background:#232019}
+html[data-theme="dark"] windfall-map .leaflet-tile-pane{filter:sepia(.35) saturate(.4) contrast(.85) brightness(.55) invert(.92) hue-rotate(180deg)}
+html[data-theme="dark"] windfall-map .leaflet-container{background:#232019}
+html[data-theme="dark"] windfall-map .leaflet-control-attribution{background:rgba(24,23,21,.72);color:#a39e98}
+html[data-theme="dark"] windfall-map .leaflet-control-attribution a{color:#e3b45c}
+html[data-theme="dark"] windfall-map .leaflet-bar a{background:rgba(35,32,28,.9);color:#ece9e3;border-bottom-color:rgba(255,255,255,.14)}
+html[data-theme="dark"] windfall-map .leaflet-bar a:hover{background:rgba(227,180,92,.16);color:#e3b45c}
+html[data-theme="dark"] windfall-map .leaflet-tooltip{background:#2b2823;border-color:rgba(255,255,255,.16);color:#ece9e3}
 `;
 
   const icons = {
