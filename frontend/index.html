@@ -18,6 +18,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.4.14/purify.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="/static/windfall-map.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root {
     --color-bg: #f3f2f2;
@@ -137,6 +138,11 @@
           <svg id="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
           <svg id="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg>
         </button>
+        <button type="button" class="btn btn-secondary" id="signin-btn" hidden>Sign in</button>
+        <span id="signedin-chip" style="display:none; align-items:center; gap:9px; font-size:12px;">
+          <span id="signedin-email" class="text-muted" style="max-width:16ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+          <button type="button" class="btn btn-secondary" id="signout-btn" style="font-size:12px; padding:5px 10px;">Sign out</button>
+        </span>
         <button type="button" class="btn btn-primary" id="open-dialog-btn">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
           Log a windfall
@@ -227,7 +233,10 @@
       <div style="display:flex; align-items:baseline; gap:16px; margin-bottom:12px; flex-wrap:wrap;">
         <h4>The ledger</h4>
         <span class="text-muted" style="font-size:12.5px; font-style:italic;">Every offer and what became of it.</span>
-        <span class="tnum" style="margin-left:auto; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">This session</span>
+        <label id="my-donations-toggle" style="display:none; margin-left:auto; align-items:center; gap:7px; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 60%, transparent); cursor:pointer;">
+          <input type="checkbox" id="my-donations-checkbox" style="margin:0;"> Mine only
+        </label>
+        <span class="tnum" id="ledger-scope-label" style="font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">This session</span>
       </div>
       <div style="border-top:1px solid var(--color-divider);">
         <div class="tnum wf-ledger-row" style="display:grid; grid-template-columns:84px 1.5fr 1.5fr 1.35fr 80px 132px; gap:14px; padding:9px 4px; font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 55%, transparent); border-bottom:1px solid var(--color-divider);">
@@ -400,7 +409,9 @@ async function refresh() {
       ${dot}</div>`;
   }).join("") || '<p class="text-muted" style="padding:16px;">No drivers yet.</p>';
 
-  document.getElementById("ledger").innerHTML = state.donations.map(d => {
+  const mineOnly = document.getElementById("my-donations-checkbox")?.checked;
+  const ledgerDonations = mineOnly ? state.donations.filter(d => myDonationIds().has(d.id)) : state.donations;
+  document.getElementById("ledger").innerHTML = ledgerDonations.map(d => {
     const m = state.matches.find(mm => mm.donation_id === d.id);
     const to = m ? (foodBanksById[m.food_bank_id]?.name || "—") : (d.status === "escalated" ? "— no licensed match" : "—");
     const dmeals = d.status === "matched" ? Math.round(d.quantity_lbs / 1.2).toLocaleString() : "0";
@@ -414,7 +425,9 @@ async function refresh() {
       <span style="text-align:right;">${dmeals}</span>
       ${statusDot(color, fill, label)}
     </div>`;
-  }).join("") || '<p class="text-muted" style="padding:12px 4px;">No donations logged yet.</p>';
+  }).join("") || (mineOnly
+    ? '<p class="text-muted" style="padding:12px 4px;">No donations logged from this browser while signed in yet.</p>'
+    : '<p class="text-muted" style="padding:12px 4px;">No donations logged yet.</p>');
 
   document.getElementById("feed").innerHTML = state.activity.map(a => {
     const t = new Date(a.ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -581,13 +594,23 @@ function openDialog() {
     };
   });
 
-  const backdrop = document.querySelector(".dialog-backdrop");
-  const dialogEl = document.querySelector(".dialog");
+  donorSelect.focus();
+  trapFocusInDialog(document.querySelector(".dialog-backdrop"), document.querySelector(".dialog"), closeDialog);
+}
+function closeDialog() {
+  document.getElementById("dialog-root").innerHTML = "";
+  if (dialogReturnFocus && dialogReturnFocus.isConnected) dialogReturnFocus.focus();
+  dialogReturnFocus = null;
+}
+
+/* Shared by every modal in the app (the donation dialog and the sign-in dialog):
+   Tab/Shift+Tab cycle within the dialog instead of escaping to the page behind it,
+   and Escape invokes the caller's close handler. */
+function trapFocusInDialog(backdropEl, dialogEl, onClose) {
   const focusable = () => Array.from(dialogEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
     .filter(el => !el.disabled && el.offsetParent !== null);
-  donorSelect.focus();
-  backdrop.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { e.preventDefault(); closeDialog(); return; }
+  backdropEl.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
     if (e.key !== "Tab") return;
     const items = focusable();
     if (!items.length) return;
@@ -595,11 +618,6 @@ function openDialog() {
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
-}
-function closeDialog() {
-  document.getElementById("dialog-root").innerHTML = "";
-  if (dialogReturnFocus && dialogReturnFocus.isConnected) dialogReturnFocus.focus();
-  dialogReturnFocus = null;
 }
 
 async function submitOffer() {
@@ -621,6 +639,7 @@ async function submitOffer() {
   });
   const data = await res.json();
   coordinatorDonationId = data.donation_id;
+  tagMyDonation(coordinatorDonationId);
   await refresh();
   const d = donationsById[coordinatorDonationId];
   coordinatorPhase = d && d.status === "escalated" ? "escalated" : "matched";
@@ -648,6 +667,98 @@ document.getElementById("theme-toggle-btn").addEventListener("click", () => {
   applyThemeToggleUI();
 });
 applyThemeToggleUI();
+
+/* Optional Supabase auth: sign-in unlocks nothing the app needs to function --
+   the dashboard and the coordinator work identically with no one signed in. When
+   signed in, "Mine only" on the ledger filters to donations submitted from this
+   browser while authenticated as that user (tracked client-side; the backend has
+   no concept of accounts). Entirely inert -- no script runs, no UI shows -- when
+   GET /config returns no Supabase project, so the app behaves exactly as before
+   until SUPABASE_URL/SUPABASE_ANON_KEY are set on the server. */
+let supa = null, currentUser = null;
+
+function myDonationIds() {
+  if (!currentUser) return new Set();
+  try { return new Set(JSON.parse(localStorage.getItem(`wf-my-donations-${currentUser.id}`) || "[]")); }
+  catch (e) { return new Set(); }
+}
+function tagMyDonation(donationId) {
+  if (!currentUser || !donationId) return;
+  const ids = myDonationIds();
+  ids.add(donationId);
+  try { localStorage.setItem(`wf-my-donations-${currentUser.id}`, JSON.stringify([...ids])); } catch (e) {}
+}
+
+function updateAuthUI() {
+  const signinBtn = document.getElementById("signin-btn");
+  const chip = document.getElementById("signedin-chip");
+  const toggle = document.getElementById("my-donations-toggle");
+  if (currentUser) {
+    signinBtn.hidden = true;
+    chip.style.display = "inline-flex";
+    document.getElementById("signedin-email").textContent = currentUser.email;
+    toggle.style.display = "inline-flex";
+  } else {
+    signinBtn.hidden = false;
+    chip.style.display = "none";
+    toggle.style.display = "none";
+    const cb = document.getElementById("my-donations-checkbox");
+    if (cb) cb.checked = false;
+  }
+}
+
+function openSignInDialog() {
+  dialogReturnFocus = document.activeElement;
+  document.getElementById("dialog-root").innerHTML = `
+  <div class="dialog-backdrop" style="animation:wf-rise .28s ease both;">
+    <div class="dialog" style="width:min(380px, 100%);" role="dialog" aria-modal="true" aria-labelledby="signin-title">
+      <div>
+        <div class="tnum" style="font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--color-accent);">Optional</div>
+        <div class="dialog-title" id="signin-title" style="margin-top:5px;">Sign in</div>
+      </div>
+      <p style="font-size:12.5px; line-height:1.6; margin:0; color:color-mix(in srgb, var(--color-text) 65%, transparent);">Nothing here is required to use Windfall — signing in just lets you filter the ledger to what you personally logged. We'll email you a one-time link, no password.</p>
+      <div class="field"><label for="signin-email">Email</label><input class="input" type="email" id="signin-email" placeholder="you@example.com"></div>
+      <p id="signin-status" class="text-muted" style="font-size:12px; margin:0; min-height:1.2em;" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-secondary" id="signin-cancel-btn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="signin-send-btn">Send magic link</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById("signin-email").focus();
+  document.getElementById("signin-cancel-btn").onclick = closeDialog;
+  document.getElementById("signin-send-btn").onclick = async () => {
+    const email = document.getElementById("signin-email").value.trim();
+    const status = document.getElementById("signin-status");
+    if (!email) { status.textContent = "Enter an email address."; return; }
+    status.textContent = "Sending…";
+    const { error } = await supa.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
+    status.textContent = error ? `Couldn't send that: ${error.message}` : "Check your email for the link.";
+  };
+  trapFocusInDialog(document.querySelector(".dialog-backdrop"), document.querySelector(".dialog"), closeDialog);
+}
+
+async function initAuth() {
+  let config;
+  try { config = await (await fetch(`${API}/config`)).json(); } catch (e) { return; }
+  if (!config.supabase_url || !config.supabase_anon_key) return; // not configured -- stay fully hidden
+  supa = window.supabase.createClient(config.supabase_url, config.supabase_anon_key);
+
+  const { data: { session } } = await supa.auth.getSession();
+  currentUser = session?.user || null;
+  updateAuthUI();
+
+  supa.auth.onAuthStateChange((_event, session) => {
+    currentUser = session?.user || null;
+    updateAuthUI();
+    refresh();
+  });
+
+  document.getElementById("signin-btn").addEventListener("click", openSignInDialog);
+  document.getElementById("signout-btn").addEventListener("click", () => supa.auth.signOut());
+  document.getElementById("my-donations-checkbox").addEventListener("change", refresh);
+}
+initAuth();
 
 function connectEvents() {
   const es = new EventSource(`${API}/events`);

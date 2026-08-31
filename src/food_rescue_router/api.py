@@ -5,6 +5,7 @@ making the dashboard poll for them.
 """
 import asyncio
 import json
+import os
 import time
 import uuid
 from pathlib import Path
@@ -150,6 +151,21 @@ def reset_demo():
     """
     reset_and_seed()
     return {"status": "reset"}
+
+
+@app.get("/config")
+def get_config():
+    """Public, client-safe config -- the Supabase anon key is designed to be exposed
+    to the browser (auth and row-level security happen on Supabase's side, not by
+    keeping this secret). Sign-in is optional and additive: the dashboard and the
+    coordinator work exactly the same with no Supabase project configured, so this
+    just returns empty strings until SUPABASE_URL/SUPABASE_ANON_KEY are set, and the
+    frontend hides the sign-in UI entirely when they're empty.
+    """
+    return {
+        "supabase_url": os.environ.get("SUPABASE_URL", ""),
+        "supabase_anon_key": os.environ.get("SUPABASE_ANON_KEY", ""),
+    }
 
 
 @app.get("/")

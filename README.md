@@ -146,6 +146,22 @@ Open http://127.0.0.1:8787, submit a donation offer, and watch the agent route i
 Environment variables (optional):
 - `BEDROCK_MODEL_ID` — defaults to `us.anthropic.claude-sonnet-4-6`
 - `AWS_REGION` — defaults to `us-east-1`
+- `SUPABASE_URL` / `SUPABASE_ANON_KEY` — optional, enables sign-in (see below). The
+  dashboard and the coordinator work identically with these unset.
+
+### Optional sign-in
+
+Signing in is never required — every donation-routing feature works fully
+anonymously, which is deliberate: judges and first-time visitors shouldn't hit a
+login wall. Signing in (via [Supabase](https://supabase.com) email magic-link auth)
+only unlocks a "Mine only" filter on the ledger, scoped to donations submitted from
+that browser while signed in.
+
+To enable it: create a free Supabase project, copy its Project URL and `anon`
+public key from Project Settings → API, and set them as `SUPABASE_URL` /
+`SUPABASE_ANON_KEY` before starting the server (or on the EC2 instance / container).
+No Google Cloud OAuth setup needed — Supabase's built-in email provider handles the
+magic link. Leave them unset and the sign-in UI stays fully hidden.
 
 ## Tests
 
