@@ -19,7 +19,12 @@ from bedrock_agentcore.memory.integrations.strands.session_manager import AgentC
 logger = logging.getLogger(__name__)
 
 MEMORY_NAME = "WindfallCoordinatorMemory"
-SESSION_ID = "windfall-network-session"
+# Distinct from src/food_rescue_router/memory.py's SESSION_ID: this deployment uses
+# NullConversationManager while the local dashboard uses Strands' default conversation
+# manager, and AgentCoreMemorySessionManager restores persisted conversation-manager
+# state on Agent construction -- sharing one session_id across the two mismatched
+# conversation_manager types raises "Invalid conversation manager state".
+SESSION_ID = "windfall-runtime-session"
 ACTOR_ID = "coordinator"
 
 _memory_id_cache: str | None = None
