@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Windfall — Rescue Router</title>
+<script>
+  try {
+    const saved = localStorage.getItem("wf-theme");
+    if (saved === "dark" || saved === "light") document.documentElement.dataset.theme = saved;
+  } catch (e) {}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
@@ -12,6 +18,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.4.14/purify.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="/static/windfall-map.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root {
     --color-bg: #f3f2f2;
@@ -21,10 +28,29 @@
     --color-accent-700: #7d5411;
     --olive: #6c7a3c;
     --rust: #a85a34;
+    --color-muted: #9b9797;
     --color-divider: rgba(32,31,29,.16);
+    --color-scrollbar: #d7d3d3;
     --font-heading: "Cormorant Garamond", Georgia, serif;
     --font-body: "Lora", Georgia, serif;
     --radius-md: 4px;
+  }
+  /* Dark palette: applied when the OS prefers dark and the user hasn't explicitly
+     chosen light, and again (unconditionally) when the user has explicitly toggled
+     dark via the header switch -- see the theme-toggle script at the bottom. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --color-bg: #181715; --color-surface: #232120; --color-text: #ece9e3;
+      --color-accent: #e3b45c; --color-accent-700: #f0c877;
+      --olive: #93a865; --rust: #d98f63; --color-muted: #a39e98;
+      --color-divider: rgba(255,255,255,.14); --color-scrollbar: #443f3a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --color-bg: #181715; --color-surface: #232120; --color-text: #ece9e3;
+    --color-accent: #e3b45c; --color-accent-700: #f0c877;
+    --olive: #93a865; --rust: #d98f63; --color-muted: #a39e98;
+    --color-divider: rgba(255,255,255,.14); --color-scrollbar: #443f3a;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
@@ -33,10 +59,21 @@
   .text-muted { color: color-mix(in srgb, var(--color-text) 55%, transparent); }
   a { color: var(--color-accent); }
   ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-thumb { background: #d7d3d3; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb { background: var(--color-scrollbar); border-radius: 9999px; }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  .skip-link { position: absolute; left: 10px; top: -60px; z-index: 5000; background: var(--color-accent); color: #181715;
+    padding: 10px 16px; border-radius: var(--radius-md); font-family: var(--font-heading); font-weight: 600; font-size: 13px;
+    text-decoration: none; transition: top .15s ease; }
+  .skip-link:focus { top: 10px; }
+  .theme-toggle { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%;
+    border: 1px solid var(--color-divider); background: transparent; color: var(--color-text); cursor: pointer; }
+  .theme-toggle:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
   @keyframes wf-spin { to { transform: rotate(360deg) } }
   @keyframes wf-rise { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
   @keyframes wf-breathe { 0%,100% { opacity: .35 } 50% { opacity: 1 } }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; text-decoration: none;
     font-family: var(--font-heading); font-weight: 600; font-size: 14px; background: transparent; border: 1px solid transparent;
     padding: 9px 16px; border-radius: var(--radius-md); }
@@ -55,16 +92,33 @@
   .dialog-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 4px; }
   .prose :where(p,ul,ol) { margin: 0 0 8px; }
   .prose strong { font-weight: 600; }
+
+  /* Responsive: below ~900px, every multi-column layout collapses to one column
+     and the fixed 40px page padding shrinks so content doesn't get crushed. */
+  @media (max-width: 900px) {
+    .wf-hero-grid, .wf-split-grid, .wf-network-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+    .wf-stats-grid { grid-template-columns: repeat(2, 1fr) !important; row-gap: 18px !important; }
+    .wf-page-pad { padding-left: 18px !important; padding-right: 18px !important; }
+    .wf-hero-value { font-size: 64px !important; }
+    /* Ledger rows: 6 columns (File/Donor/Load/Recipient/Meals/Outcome) don't fit a phone
+       screen -- keep just Donor and Outcome, CSS grid auto-places whatever's left visible
+       into the 2 defined tracks in source order. */
+    .wf-ledger-row { grid-template-columns: 1fr auto !important; gap: 10px !important; }
+    .wf-ledger-row > span:nth-child(1), .wf-ledger-row > span:nth-child(3),
+    .wf-ledger-row > span:nth-child(4), .wf-ledger-row > span:nth-child(5) { display: none !important; }
+  }
 </style>
 </head>
 <body>
 
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
 <div style="min-height:100vh; display:flex; flex-direction:column;">
 
   <div style="position:sticky; top:0; z-index:60; background: color-mix(in srgb, var(--color-bg) 90%, transparent); backdrop-filter: blur(8px); border-bottom:1px solid var(--color-divider);">
-    <div style="max-width:1560px; margin:0 auto; padding:13px 40px; display:flex; align-items:center; gap:26px;">
+    <div class="wf-page-pad" style="max-width:1560px; margin:0 auto; padding:13px 40px; display:flex; align-items:center; gap:26px; flex-wrap:wrap;">
       <div style="display:flex; align-items:center; gap:12px;">
-        <svg viewBox="0 0 48 48" width="27" height="27" aria-label="Windfall">
+        <svg viewBox="0 0 48 48" width="27" height="27" aria-hidden="true">
           <g fill="none" stroke="var(--color-accent)" stroke-width="2.4" stroke-linecap="round">
             <path d="M8 27.5c0 8.2 7.2 12.5 16 12.5s16-4.3 16-12.5"></path>
             <path d="M30.5 13.2c-6.1 2.1-10.2 6.7-11.6 13.1" stroke-dasharray="1.6 4.2" stroke-width="2"></path>
@@ -72,32 +126,41 @@
           <circle cx="32.6" cy="9.6" r="3.6" fill="var(--color-accent)"></circle>
         </svg>
         <span style="font-family:var(--font-heading); font-weight:600; font-size:19px; letter-spacing:0.15em;">WINDFALL</span>
-        <span style="width:1px; height:17px; background:var(--color-divider);"></span>
+        <span style="width:1px; height:17px; background:var(--color-divider);" aria-hidden="true"></span>
         <span style="font-family:var(--font-heading); font-size:15px; font-style:italic; color:color-mix(in srgb, var(--color-text) 62%, transparent);">Rescue Router</span>
       </div>
       <div style="margin-left:auto; display:flex; align-items:center; gap:18px;">
         <span class="tnum" id="clock" style="font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">Austin</span>
         <span style="display:inline-flex; align-items:center; gap:7px; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--olive);">
-          <span style="width:7px; height:7px; border-radius:50%; background:var(--olive); animation: wf-breathe 2.6s ease-in-out infinite;"></span>Network live
+          <span style="width:7px; height:7px; border-radius:50%; background:var(--olive); animation: wf-breathe 2.6s ease-in-out infinite;" aria-hidden="true"></span>Network live
+        </span>
+        <button type="button" class="theme-toggle" id="theme-toggle-btn" aria-label="Switch to dark theme" aria-pressed="false">
+          <svg id="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+          <svg id="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg>
+        </button>
+        <button type="button" class="btn btn-secondary" id="signin-btn" style="display:none;">Sign in</button>
+        <span id="signedin-chip" style="display:none; align-items:center; gap:9px; font-size:12px;">
+          <span id="signedin-email" class="text-muted" style="max-width:16ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+          <button type="button" class="btn btn-secondary" id="signout-btn" style="font-size:12px; padding:5px 10px;">Sign out</button>
         </span>
         <button type="button" class="btn btn-primary" id="open-dialog-btn">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
           Log a windfall
         </button>
       </div>
     </div>
   </div>
 
-  <section style="max-width:1560px; margin:0 auto; width:100%; padding:46px 40px 30px;">
-    <div style="display:grid; grid-template-columns:1.05fr 1.25fr; gap:60px; align-items:end;">
+  <section id="main-content" class="wf-page-pad" style="max-width:1560px; margin:0 auto; width:100%; padding:46px 40px 30px;">
+    <div class="wf-hero-grid" style="display:grid; grid-template-columns:1.05fr 1.25fr; gap:60px; align-items:end;">
       <div>
         <div class="tnum" style="font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--color-accent);">This session · the Austin network</div>
-        <div class="tnum" id="hero-value" style="font-family:var(--font-heading); font-weight:400; font-size:96px; line-height:0.92; letter-spacing:-0.025em; margin-top:10px;">0</div>
+        <div class="tnum wf-hero-value" id="hero-value" style="font-family:var(--font-heading); font-weight:400; font-size:96px; line-height:0.92; letter-spacing:-0.025em; margin-top:10px;">0</div>
         <div style="font-family:var(--font-heading); font-size:27px; font-style:italic; color:var(--color-accent-700); margin-top:2px;">meals rescued and delivered</div>
         <p style="margin:14px 0 0; font-size:13px; line-height:1.65; max-width:42ch; color:color-mix(in srgb, var(--color-text) 68%, transparent);">Counted from confirmed matches only, at 1.2 lb of edible food per meal — never an offer that merely got submitted.</p>
       </div>
       <div>
-        <div style="display:grid; grid-template-columns:repeat(4,1fr);">
+        <div class="wf-stats-grid" style="display:grid; grid-template-columns:repeat(4,1fr);">
           <div style="padding:0 20px 0 0; border-right:1px solid var(--color-divider);">
             <div class="tnum" id="stat-lbs" style="font-family:var(--font-heading); font-size:34px; line-height:1.1;">0</div>
             <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 52%, transparent); margin-top:4px;">Pounds diverted</div>
@@ -130,16 +193,16 @@
     </div>
   </section>
 
-  <section style="max-width:1560px; margin:0 auto; width:100%; padding:14px 40px 0; display:grid; grid-template-columns:1.55fr 1fr; gap:34px; align-items:start;">
+  <section class="wf-split-grid wf-page-pad" style="max-width:1560px; margin:0 auto; width:100%; padding:14px 40px 0; display:grid; grid-template-columns:1.55fr 1fr; gap:34px; align-items:start;">
     <div>
-      <div style="display:flex; align-items:baseline; gap:16px; margin-bottom:14px;">
+      <div style="display:flex; align-items:baseline; gap:16px; margin-bottom:14px; flex-wrap:wrap;">
         <h4>The city, live</h4>
         <span class="text-muted" style="font-size:12.5px; font-style:italic;">Donors, pantries and volunteers, with routes as they commit.</span>
         <div style="margin-left:auto; display:flex; align-items:center; gap:16px;">
-          <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;"><svg width="13" height="13" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.4" fill="none" stroke="#b68235" stroke-width="1.5"></circle><circle cx="8" cy="8" r="1.7" fill="#b68235"></circle></svg>Donor</span>
-          <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;"><svg width="13" height="13" viewBox="0 0 16 16"><rect x="2.6" y="2.6" width="10.8" height="10.8" fill="none" stroke="#6c7a3c" stroke-width="1.5"></rect><path d="M5 8h6M8 5v6" stroke="#6c7a3c" stroke-width="1.4"></path></svg>Pantry</span>
-          <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;"><svg width="11" height="11" viewBox="0 0 14 14"><circle cx="7" cy="7" r="4.2" fill="#6c7a3c" stroke="#6c7a3c" stroke-width="1.5"></circle></svg>Driver</span>
-          <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;"><span style="width:20px; border-top:2px dashed #b68235;"></span>Route</span>
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.4" fill="none" stroke="var(--color-accent)" stroke-width="1.5"></circle><circle cx="8" cy="8" r="1.7" fill="var(--color-accent)"></circle></svg>Donor</span>
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.6" y="2.6" width="10.8" height="10.8" fill="none" stroke="var(--olive)" stroke-width="1.5"></rect><path d="M5 8h6M8 5v6" stroke="var(--olive)" stroke-width="1.4"></path></svg>Pantry</span>
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;"><svg width="11" height="11" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="4.2" fill="var(--olive)" stroke="var(--olive)" stroke-width="1.5"></circle></svg>Driver</span>
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;"><span style="width:20px; border-top:2px dashed var(--color-accent);" aria-hidden="true"></span>Route</span>
         </div>
       </div>
       <div style="position:relative; height:480px; border:6px solid var(--color-surface); outline:1px solid var(--color-divider); border-radius:2px;">
@@ -154,26 +217,29 @@
           <div id="panel-title" style="font-family:var(--font-heading); font-weight:600; font-size:19px; margin-top:3px;">Standing by</div>
         </div>
         <div style="margin-left:auto; position:relative; width:46px; height:46px;">
-          <svg width="46" height="46" viewBox="0 0 40 40" style="transform:rotate(-90deg);">
+          <svg width="46" height="46" viewBox="0 0 40 40" style="transform:rotate(-90deg);" aria-hidden="true">
             <circle cx="20" cy="20" r="17" fill="none" stroke="var(--color-divider)" stroke-width="1.6"></circle>
             <circle id="ring" cx="20" cy="20" r="17" fill="none" stroke="var(--color-accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="106.8" stroke-dashoffset="106.8"></circle>
           </svg>
           <span id="ring-label" class="tnum" style="position:absolute; inset:0; display:grid; place-items:center; font-size:10px;">—</span>
         </div>
       </div>
-      <div id="coordinator-body"></div>
+      <div id="coordinator-body" role="status" aria-live="polite"></div>
     </div>
   </section>
 
-  <section style="max-width:1560px; margin:0 auto; width:100%; padding:40px 40px 0; display:grid; grid-template-columns:1.55fr 1fr; gap:34px; align-items:start;">
+  <section class="wf-split-grid wf-page-pad" style="max-width:1560px; margin:0 auto; width:100%; padding:40px 40px 0; display:grid; grid-template-columns:1.55fr 1fr; gap:34px; align-items:start;">
     <div>
-      <div style="display:flex; align-items:baseline; gap:16px; margin-bottom:12px;">
+      <div style="display:flex; align-items:baseline; gap:16px; margin-bottom:12px; flex-wrap:wrap;">
         <h4>The ledger</h4>
         <span class="text-muted" style="font-size:12.5px; font-style:italic;">Every offer and what became of it.</span>
-        <span class="tnum" style="margin-left:auto; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">This session</span>
+        <label id="my-donations-toggle" style="display:none; margin-left:auto; align-items:center; gap:7px; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 60%, transparent); cursor:pointer;">
+          <input type="checkbox" id="my-donations-checkbox" style="margin:0;"> Mine only
+        </label>
+        <span class="tnum" id="ledger-scope-label" style="font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">This session</span>
       </div>
       <div style="border-top:1px solid var(--color-divider);">
-        <div class="tnum" style="display:grid; grid-template-columns:84px 1.5fr 1.5fr 1.35fr 80px 132px; gap:14px; padding:9px 4px; font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 55%, transparent); border-bottom:1px solid var(--color-divider);">
+        <div class="tnum wf-ledger-row" style="display:grid; grid-template-columns:84px 1.5fr 1.5fr 1.35fr 80px 132px; gap:14px; padding:9px 4px; font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 55%, transparent); border-bottom:1px solid var(--color-divider);">
           <span>File</span><span>Donor</span><span>Load</span><span>Recipient</span><span style="text-align:right;">Meals</span><span>Outcome</span>
         </div>
         <div id="ledger"></div>
@@ -186,20 +252,20 @@
         <span id="feed-status" class="tnum" style="margin-left:auto; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">Live</span>
       </div>
       <div style="border-top:1px solid var(--color-divider); max-height:372px; overflow:auto;">
-        <div id="feed"></div>
+        <div id="feed" role="log" aria-live="polite"></div>
       </div>
     </div>
   </section>
 
-  <section style="max-width:1560px; margin:0 auto; width:100%; padding:44px 40px 60px;">
+  <section class="wf-page-pad" style="max-width:1560px; margin:0 auto; width:100%; padding:44px 40px 60px;">
     <div style="display:flex; align-items:baseline; gap:16px; margin-bottom:16px;">
       <h4>The network</h4>
       <span class="text-muted" style="font-size:12.5px; font-style:italic;">Three directories, kept by the desks that use them.</span>
     </div>
-    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:30px;">
+    <div class="wf-network-grid" style="display:grid; grid-template-columns:repeat(3,1fr); gap:30px;">
       <div style="border:1px solid var(--color-divider); border-radius:var(--radius-md);">
         <div style="padding:13px 16px; border-bottom:1px solid var(--color-divider); display:flex; align-items:center; gap:10px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg>
           <span class="tnum" style="font-size:10px; letter-spacing:0.16em; text-transform:uppercase;">Donors</span>
           <span id="donor-count" class="tnum" style="margin-left:auto; font-size:11px; color:color-mix(in srgb, var(--color-text) 50%, transparent);">0</span>
         </div>
@@ -207,7 +273,7 @@
       </div>
       <div style="border:1px solid var(--color-divider); border-radius:var(--radius-md);">
         <div style="padding:13px 16px; border-bottom:1px solid var(--color-divider); display:flex; align-items:center; gap:10px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6c7a3c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22h18"></path><path d="M6 18v-7"></path><path d="M10 18v-7"></path><path d="M14 18v-7"></path><path d="M18 18v-7"></path><path d="M12 2 20 7H4Z"></path></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--olive)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 22h18"></path><path d="M6 18v-7"></path><path d="M10 18v-7"></path><path d="M14 18v-7"></path><path d="M18 18v-7"></path><path d="M12 2 20 7H4Z"></path></svg>
           <span class="tnum" style="font-size:10px; letter-spacing:0.16em; text-transform:uppercase;">Food banks &amp; pantries</span>
           <span id="bank-count" class="tnum" style="margin-left:auto; font-size:11px; color:color-mix(in srgb, var(--color-text) 50%, transparent);">0</span>
         </div>
@@ -215,7 +281,7 @@
       </div>
       <div style="border:1px solid var(--color-divider); border-radius:var(--radius-md);">
         <div style="padding:13px 16px; border-bottom:1px solid var(--color-divider); display:flex; align-items:center; gap:10px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>
           <span class="tnum" style="font-size:10px; letter-spacing:0.16em; text-transform:uppercase;">Volunteer drivers</span>
           <span id="driver-count" class="tnum" style="margin-left:auto; font-size:11px; color:color-mix(in srgb, var(--color-text) 50%, transparent);">0</span>
         </div>
@@ -225,8 +291,8 @@
   </section>
 
   <div style="margin-top:auto; background:#171615; color:#d7d3d3;">
-    <div style="max-width:1560px; margin:0 auto; padding:26px 40px; display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
-      <svg viewBox="0 0 48 48" width="24" height="24">
+    <div class="wf-page-pad" style="max-width:1560px; margin:0 auto; padding:26px 40px; display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+      <svg viewBox="0 0 48 48" width="24" height="24" aria-hidden="true">
         <g fill="none" stroke="#e1ad66" stroke-width="2.4" stroke-linecap="round">
           <path d="M8 27.5c0 8.2 7.2 12.5 16 12.5s16-4.3 16-12.5"></path>
           <path d="M30.5 13.2c-6.1 2.1-10.2 6.7-11.6 13.1" stroke-dasharray="1.6 4.2" stroke-width="2"></path>
@@ -315,7 +381,7 @@ async function refresh() {
 
   document.getElementById("col-donors").innerHTML = state.donors.map(d => {
     const pending = state.donations.filter(x => x.donor_id === d.id && x.status !== "matched").length;
-    const dot = pending ? statusDot("var(--color-accent)", "color-mix(in srgb, var(--color-accent) 24%, transparent)", "offer live") : statusDot("#9b9797", "transparent", d.zone);
+    const dot = pending ? statusDot("var(--color-accent)", "color-mix(in srgb, var(--color-accent) 24%, transparent)", "offer live") : statusDot("var(--color-muted)", "transparent", d.zone);
     return `<div style="display:grid; grid-template-columns:1fr auto; gap:10px; padding:11px 16px; border-bottom:1px solid var(--color-divider); align-items:center;">
       <div><div style="font-family:var(--font-heading); font-weight:600; font-size:14.5px;">${esc(d.name)}</div>
       <div class="tnum" style="font-size:11px; color:color-mix(in srgb, var(--color-text) 52%, transparent); margin-top:1px;">${esc(d.kind)} &middot; ${esc(d.zone)}</div></div>
@@ -327,7 +393,7 @@ async function refresh() {
     const entries = Object.entries(fb.needs);
     const top = entries.find(([,v]) => v === "high") || entries.find(([,v]) => v === "medium") || entries[0];
     const label = incoming ? `${incoming} inbound` : (top ? `${top[0]}: ${top[1]}` : "");
-    const color = incoming ? "var(--color-accent)" : "#6c7a3c";
+    const color = incoming ? "var(--color-accent)" : "var(--olive)";
     const dot = statusDot(color, incoming ? "color-mix(in srgb, var(--color-accent) 24%, transparent)" : "transparent", label);
     return `<div style="display:grid; grid-template-columns:1fr auto; gap:10px; padding:11px 16px; border-bottom:1px solid var(--color-divider); align-items:center;">
       <div><div style="font-family:var(--font-heading); font-weight:600; font-size:14.5px;">${esc(fb.name)}</div>
@@ -336,20 +402,22 @@ async function refresh() {
   }).join("") || '<p class="text-muted" style="padding:16px;">No food banks yet.</p>';
 
   document.getElementById("col-drivers").innerHTML = state.drivers.map(dr => {
-    const dot = dr.status === "assigned" ? statusDot("var(--color-accent)", "color-mix(in srgb, var(--color-accent) 24%, transparent)", "on route") : statusDot("#6c7a3c", "transparent", "available");
+    const dot = dr.status === "assigned" ? statusDot("var(--color-accent)", "color-mix(in srgb, var(--color-accent) 24%, transparent)", "on route") : statusDot("var(--olive)", "transparent", "available");
     return `<div style="display:grid; grid-template-columns:1fr auto; gap:10px; padding:11px 16px; border-bottom:1px solid var(--color-divider); align-items:center;">
       <div><div style="font-family:var(--font-heading); font-weight:600; font-size:14.5px;">${esc(dr.name)}</div>
       <div class="tnum" style="font-size:11px; color:color-mix(in srgb, var(--color-text) 52%, transparent); margin-top:1px;">${esc(dr.zone)} &middot; up to ${dr.vehicle_capacity_lbs} lbs</div></div>
       ${dot}</div>`;
   }).join("") || '<p class="text-muted" style="padding:16px;">No drivers yet.</p>';
 
-  document.getElementById("ledger").innerHTML = state.donations.map(d => {
+  const mineOnly = document.getElementById("my-donations-checkbox")?.checked;
+  const ledgerDonations = mineOnly ? state.donations.filter(d => myDonationIds().has(d.id)) : state.donations;
+  document.getElementById("ledger").innerHTML = ledgerDonations.map(d => {
     const m = state.matches.find(mm => mm.donation_id === d.id);
     const to = m ? (foodBanksById[m.food_bank_id]?.name || "—") : (d.status === "escalated" ? "— no licensed match" : "—");
     const dmeals = d.status === "matched" ? Math.round(d.quantity_lbs / 1.2).toLocaleString() : "0";
-    const colors = { pending: ["#9b9797", "transparent", "Routing…"], matched: ["var(--color-accent)", "color-mix(in srgb, var(--color-accent) 24%, transparent)", "Matched"], escalated: ["var(--rust)", "color-mix(in srgb, var(--rust) 24%, transparent)", "Escalated"] };
+    const colors = { pending: ["var(--color-muted)", "transparent", "Routing…"], matched: ["var(--color-accent)", "color-mix(in srgb, var(--color-accent) 24%, transparent)", "Matched"], escalated: ["var(--rust)", "color-mix(in srgb, var(--rust) 24%, transparent)", "Escalated"] };
     const [color, fill, label] = colors[d.status] || colors.pending;
-    return `<div class="tnum" style="display:grid; grid-template-columns:84px 1.5fr 1.5fr 1.35fr 80px 132px; gap:14px; padding:11px 4px; border-bottom:1px solid var(--color-divider); font-size:13px; align-items:baseline;">
+    return `<div class="tnum wf-ledger-row" style="display:grid; grid-template-columns:84px 1.5fr 1.5fr 1.35fr 80px 132px; gap:14px; padding:11px 4px; border-bottom:1px solid var(--color-divider); font-size:13px; align-items:baseline;">
       <span style="font-size:11.5px; color:color-mix(in srgb, var(--color-text) 55%, transparent);">${esc(d.id)}</span>
       <span style="font-family:var(--font-body);">${esc(d.donor_name)}</span>
       <span style="color:color-mix(in srgb, var(--color-text) 74%, transparent);">${d.quantity_lbs} lbs ${esc(d.category)}</span>
@@ -357,11 +425,13 @@ async function refresh() {
       <span style="text-align:right;">${dmeals}</span>
       ${statusDot(color, fill, label)}
     </div>`;
-  }).join("") || '<p class="text-muted" style="padding:12px 4px;">No donations logged yet.</p>';
+  }).join("") || (mineOnly
+    ? '<p class="text-muted" style="padding:12px 4px;">No donations logged from this browser while signed in yet.</p>'
+    : '<p class="text-muted" style="padding:12px 4px;">No donations logged yet.</p>');
 
   document.getElementById("feed").innerHTML = state.activity.map(a => {
     const t = new Date(a.ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const tagColor = a.actor === "agent" ? "var(--color-accent)" : a.actor.startsWith("donor") ? "var(--color-accent)" : a.actor.startsWith("food_bank") ? "#6c7a3c" : a.actor.startsWith("driver") ? "#6c7a3c" : "#9b9797";
+    const tagColor = a.actor === "agent" ? "var(--color-accent)" : a.actor.startsWith("donor") ? "var(--color-accent)" : a.actor.startsWith("food_bank") ? "var(--olive)" : a.actor.startsWith("driver") ? "var(--olive)" : "var(--color-muted)";
     return `<div style="display:grid; grid-template-columns:52px 1fr; gap:12px; padding:10px 4px; border-bottom:1px solid var(--color-divider); animation:wf-rise .5s ease both;">
       <span class="tnum" style="font-size:11px; color:color-mix(in srgb, var(--color-text) 45%, transparent); padding-top:2px;">${t}</span>
       <span style="font-size:12.5px; line-height:1.55;"><span style="color:${tagColor};">${esc(a.actor)} ${esc(a.action)}</span> &mdash; ${esc(a.detail)}</span>
@@ -411,11 +481,11 @@ function renderCoordinator(state) {
     const m = state.matches.find(mm => mm.donation_id === coordinatorDonationId);
     if (!d || !m) return;
     const fb = foodBanksById[m.food_bank_id], dr = driversById[m.driver_id];
-    setRing(1, "#6c7a3c", "✓");
+    setRing(1, "var(--olive)", "✓");
     title.textContent = "Match sealed";
     body.innerHTML = `<div style="animation:wf-rise .6s ease both;">
       <div style="padding:16px 20px; border-bottom:1px solid var(--color-divider);">
-        <div class="tnum" style="font-size:10px; letter-spacing:0.16em; text-transform:uppercase; color:#6c7a3c;">Match confirmed</div>
+        <div class="tnum" style="font-size:10px; letter-spacing:0.16em; text-transform:uppercase; color:var(--olive);">Match confirmed</div>
         <div style="display:grid; gap:0; margin-top:12px;">
           <div style="display:grid; grid-template-columns:74px 1fr; gap:12px; padding:9px 0; border-bottom:1px solid var(--color-divider);">
             <span class="tnum" style="font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent); padding-top:3px;">From</span>
@@ -450,7 +520,7 @@ function renderCoordinator(state) {
     body.innerHTML = `<div style="animation:wf-rise .6s ease both;">
       <div style="padding:16px 20px; border-bottom:1px solid var(--color-divider);">
         <div style="display:flex; align-items:center; gap:9px; color:var(--rust);">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
           <span class="tnum" style="font-size:10px; letter-spacing:0.16em; text-transform:uppercase;">Escalated to a human</span>
         </div>
         <p style="margin:12px 0 0; font-family:var(--font-heading); font-size:17px; line-height:1.35;">${esc(d.resolution_detail)}</p>
@@ -473,16 +543,18 @@ function renderCoordinator(state) {
   document.getElementById("idle-open-btn").onclick = openDialog;
 }
 
+let dialogReturnFocus = null;
 function openDialog() {
+  dialogReturnFocus = document.activeElement;
   document.getElementById("dialog-root").innerHTML = `
   <div class="dialog-backdrop" style="animation:wf-rise .28s ease both;">
-    <div class="dialog" style="width:min(520px, 100%);">
+    <div class="dialog" style="width:min(520px, 100%);" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
       <div>
         <div class="tnum" style="font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--color-accent);">New surplus offer</div>
-        <div class="dialog-title" style="margin-top:5px;">Log a windfall</div>
+        <div class="dialog-title" id="dialog-title" style="margin-top:5px;">Log a windfall</div>
       </div>
-      <div class="field"><label>Donor</label><select class="input" id="f-donor"></select></div>
-      <div class="field"><label>Food category</label>
+      <div class="field"><label for="f-donor">Donor</label><select class="input" id="f-donor"></select></div>
+      <div class="field"><label for="f-category">Food category</label>
         <select class="input" id="f-category">
           <option value="produce">Produce</option>
           <option value="bakery">Bakery</option>
@@ -491,11 +563,11 @@ function openDialog() {
         </select>
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-        <div class="field"><label>Quantity (lbs)</label><input class="input tnum" type="number" id="f-qty" value="60"></div>
-        <div class="field"><label>Pickup window start</label><input class="input" type="text" id="f-start" value="Today 1:00pm"></div>
+        <div class="field"><label for="f-qty">Quantity (lbs)</label><input class="input tnum" type="number" id="f-qty" value="60"></div>
+        <div class="field"><label for="f-start">Pickup window start</label><input class="input" type="text" id="f-start" value="Today 1:00pm"></div>
       </div>
-      <div class="field"><label>Pickup window end</label><input class="input" type="text" id="f-end" value="Today 5:00pm"></div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <div class="field"><label for="f-end">Pickup window end</label><input class="input" type="text" id="f-end" value="Today 5:00pm"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;" role="group" aria-label="Quick scenarios">
         <button type="button" class="scenario-btn btn btn-secondary" style="font-size:12px; padding:6px 10px;" data-donor="d1" data-category="produce" data-qty="60" data-start="Today 1:00pm" data-end="Today 5:00pm">Easy match</button>
         <button type="button" class="scenario-btn btn btn-secondary" style="font-size:12px; padding:6px 10px;" data-donor="d3" data-category="dairy" data-qty="550" data-start="Today 9:00am" data-end="Today 11:00am">Tight capacity</button>
         <button type="button" class="scenario-btn btn btn-secondary" style="font-size:12px; padding:6px 10px;" data-donor="d2" data-category="dairy" data-qty="5000" data-start="Today 11:50pm" data-end="Today 11:55pm">No match &rarr; escalate</button>
@@ -521,8 +593,32 @@ function openDialog() {
       submitOffer();
     };
   });
+
+  donorSelect.focus();
+  trapFocusInDialog(document.querySelector(".dialog-backdrop"), document.querySelector(".dialog"), closeDialog);
 }
-function closeDialog() { document.getElementById("dialog-root").innerHTML = ""; }
+function closeDialog() {
+  document.getElementById("dialog-root").innerHTML = "";
+  if (dialogReturnFocus && dialogReturnFocus.isConnected) dialogReturnFocus.focus();
+  dialogReturnFocus = null;
+}
+
+/* Shared by every modal in the app (the donation dialog and the sign-in dialog):
+   Tab/Shift+Tab cycle within the dialog instead of escaping to the page behind it,
+   and Escape invokes the caller's close handler. */
+function trapFocusInDialog(backdropEl, dialogEl, onClose) {
+  const focusable = () => Array.from(dialogEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+    .filter(el => !el.disabled && el.offsetParent !== null);
+  backdropEl.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
+    if (e.key !== "Tab") return;
+    const items = focusable();
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+}
 
 async function submitOffer() {
   const body = {
@@ -543,6 +639,7 @@ async function submitOffer() {
   });
   const data = await res.json();
   coordinatorDonationId = data.donation_id;
+  tagMyDonation(coordinatorDonationId);
   await refresh();
   const d = donationsById[coordinatorDonationId];
   coordinatorPhase = d && d.status === "escalated" ? "escalated" : "matched";
@@ -550,6 +647,118 @@ async function submitOffer() {
 }
 
 document.getElementById("open-dialog-btn").addEventListener("click", openDialog);
+
+function currentTheme() {
+  if (document.documentElement.dataset.theme) return document.documentElement.dataset.theme;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+function applyThemeToggleUI() {
+  const dark = currentTheme() === "dark";
+  document.getElementById("theme-icon-sun").style.display = dark ? "none" : "";
+  document.getElementById("theme-icon-moon").style.display = dark ? "" : "none";
+  const btn = document.getElementById("theme-toggle-btn");
+  btn.setAttribute("aria-pressed", String(dark));
+  btn.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+}
+document.getElementById("theme-toggle-btn").addEventListener("click", () => {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("wf-theme", next); } catch (e) {}
+  applyThemeToggleUI();
+});
+applyThemeToggleUI();
+
+/* Optional Supabase auth: sign-in unlocks nothing the app needs to function --
+   the dashboard and the coordinator work identically with no one signed in. When
+   signed in, "Mine only" on the ledger filters to donations submitted from this
+   browser while authenticated as that user (tracked client-side; the backend has
+   no concept of accounts). Entirely inert -- no script runs, no UI shows -- when
+   GET /config returns no Supabase project, so the app behaves exactly as before
+   until SUPABASE_URL/SUPABASE_ANON_KEY are set on the server. */
+let supa = null, currentUser = null;
+
+function myDonationIds() {
+  if (!currentUser) return new Set();
+  try { return new Set(JSON.parse(localStorage.getItem(`wf-my-donations-${currentUser.id}`) || "[]")); }
+  catch (e) { return new Set(); }
+}
+function tagMyDonation(donationId) {
+  if (!currentUser || !donationId) return;
+  const ids = myDonationIds();
+  ids.add(donationId);
+  try { localStorage.setItem(`wf-my-donations-${currentUser.id}`, JSON.stringify([...ids])); } catch (e) {}
+}
+
+function updateAuthUI() {
+  const signinBtn = document.getElementById("signin-btn");
+  const chip = document.getElementById("signedin-chip");
+  const toggle = document.getElementById("my-donations-toggle");
+  if (currentUser) {
+    signinBtn.style.display = "none";
+    chip.style.display = "inline-flex";
+    document.getElementById("signedin-email").textContent = currentUser.email;
+    toggle.style.display = "inline-flex";
+  } else {
+    signinBtn.style.display = "inline-flex";
+    chip.style.display = "none";
+    toggle.style.display = "none";
+    const cb = document.getElementById("my-donations-checkbox");
+    if (cb) cb.checked = false;
+  }
+}
+
+function openSignInDialog() {
+  dialogReturnFocus = document.activeElement;
+  document.getElementById("dialog-root").innerHTML = `
+  <div class="dialog-backdrop" style="animation:wf-rise .28s ease both;">
+    <div class="dialog" style="width:min(380px, 100%);" role="dialog" aria-modal="true" aria-labelledby="signin-title">
+      <div>
+        <div class="tnum" style="font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--color-accent);">Optional</div>
+        <div class="dialog-title" id="signin-title" style="margin-top:5px;">Sign in</div>
+      </div>
+      <p style="font-size:12.5px; line-height:1.6; margin:0; color:color-mix(in srgb, var(--color-text) 65%, transparent);">Nothing here is required to use Windfall — signing in just lets you filter the ledger to what you personally logged. We'll email you a one-time link, no password.</p>
+      <div class="field"><label for="signin-email">Email</label><input class="input" type="email" id="signin-email" placeholder="you@example.com"></div>
+      <p id="signin-status" class="text-muted" style="font-size:12px; margin:0; min-height:1.2em;" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-secondary" id="signin-cancel-btn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="signin-send-btn">Send magic link</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById("signin-email").focus();
+  document.getElementById("signin-cancel-btn").onclick = closeDialog;
+  document.getElementById("signin-send-btn").onclick = async () => {
+    const email = document.getElementById("signin-email").value.trim();
+    const status = document.getElementById("signin-status");
+    if (!email) { status.textContent = "Enter an email address."; return; }
+    status.textContent = "Sending…";
+    const { error } = await supa.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
+    status.textContent = error ? `Couldn't send that: ${error.message}` : "Check your email for the link.";
+  };
+  trapFocusInDialog(document.querySelector(".dialog-backdrop"), document.querySelector(".dialog"), closeDialog);
+}
+
+async function initAuth() {
+  let config;
+  try { config = await (await fetch(`${API}/config`, { cache: "no-store" })).json(); } catch (e) { return; }
+  if (!config.supabase_url || !config.supabase_anon_key) return; // not configured -- stay fully hidden
+  supa = window.supabase.createClient(config.supabase_url, config.supabase_anon_key);
+
+  const { data: { session } } = await supa.auth.getSession();
+  currentUser = session?.user || null;
+  updateAuthUI();
+
+  supa.auth.onAuthStateChange((_event, session) => {
+    currentUser = session?.user || null;
+    updateAuthUI();
+    refresh();
+  });
+
+  document.getElementById("signin-btn").addEventListener("click", openSignInDialog);
+  document.getElementById("signout-btn").addEventListener("click", () => supa.auth.signOut());
+  document.getElementById("my-donations-checkbox").addEventListener("change", refresh);
+}
+initAuth();
 
 function connectEvents() {
   const es = new EventSource(`${API}/events`);

@@ -16,7 +16,7 @@ on screen is computed from live state).
 
 Built for the **Agents for Humans Hackathon** (Good Neighbor track).
 
-**Live demo**: [http://52.201.234.155](http://52.201.234.155) — the actual dashboard,
+**Live demo**: [http://32.196.16.210](http://32.196.16.210) — the actual dashboard,
 deployed on an AWS EC2 instance, running the real multi-agent Coordinator against live
 Amazon Bedrock calls. Not a mockup — submit a donation and watch it route for real.
 
@@ -34,6 +34,28 @@ run benefits three separate parties, plus the community the food bank serves.
 > **Data note:** the donors, food banks, and drivers in this demo are synthetic —
 > fictional stand-ins for a city-scale network, not a real partner organization's
 > data. See [docs/architecture.md](docs/architecture.md).
+
+## The problem, in numbers
+
+This isn't a supply problem — it's a coordination-speed problem:
+
+- **29% of the US food supply went unsold or uneaten in 2024** — about 114 billion
+  meals' worth — much of it still perfectly edible when it's thrown out
+  ([ReFED, 2026 US Food Waste Report](https://refed.org/food-waste/the-problem/)).
+- **47.9 million Americans lived in food-insecure households in 2024**, including
+  14.1 million children — 1 in 7 households nationally
+  ([USDA Economic Research Service, Household Food Security in the United States
+  2024](https://www.ers.usda.gov/topics/food-nutrition-assistance/food-security-in-the-us/key-statistics-graphics);
+  [Feeding America](https://www.feedingamerica.org/research)).
+- Surplus food is usually only donatable within a narrow safe-handling window before
+  it has to be discarded (see `check_food_safety_window` in
+  [tools.py](src/food_rescue_router/tools.py)) — which is exactly why this has to be
+  a fast, autonomous match, not a phone-tag process that takes hours to find a food
+  bank with space and a driver who's free.
+
+Windfall doesn't create more surplus food or more donated food — it closes the gap
+between a donation being offered and it actually reaching someone, before the safety
+window closes.
 
 ## How it works
 
@@ -124,6 +146,22 @@ Open http://127.0.0.1:8787, submit a donation offer, and watch the agent route i
 Environment variables (optional):
 - `BEDROCK_MODEL_ID` — defaults to `us.anthropic.claude-sonnet-4-6`
 - `AWS_REGION` — defaults to `us-east-1`
+- `SUPABASE_URL` / `SUPABASE_ANON_KEY` — optional, enables sign-in (see below). The
+  dashboard and the coordinator work identically with these unset.
+
+### Optional sign-in
+
+Signing in is never required — every donation-routing feature works fully
+anonymously, which is deliberate: judges and first-time visitors shouldn't hit a
+login wall. Signing in (via [Supabase](https://supabase.com) email magic-link auth)
+only unlocks a "Mine only" filter on the ledger, scoped to donations submitted from
+that browser while signed in.
+
+To enable it: create a free Supabase project, copy its Project URL and `anon`
+public key from Project Settings → API, and set them as `SUPABASE_URL` /
+`SUPABASE_ANON_KEY` before starting the server (or on the EC2 instance / container).
+No Google Cloud OAuth setup needed — Supabase's built-in email provider handles the
+magic link. Leave them unset and the sign-in UI stays fully hidden.
 
 ## Tests
 

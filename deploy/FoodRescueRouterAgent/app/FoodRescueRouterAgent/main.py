@@ -9,10 +9,12 @@ packages this app directory in isolation, so it can't import across the repo's
 start and keeps state in the container's /tmp for the life of the runtime instance.
 
 Invoke with a payload like:
-    {"prompt": "New donation offer:\\n- donation_id: d123\\n- donor: Green Aisle Market (Downtown)\\n"
+    {"prompt": "New donation offer:\\n- donation_id: d123\\n- donor_id: d1\\n"
+                "- donor: Green Aisle Market (Downtown)\\n"
                 "- category: produce\\n- quantity_lbs: 60\\n- pickup_window: Today 1pm to Today 5pm\\n\\n"
                 "Route this donation now."}
 """
+import os
 from collections import OrderedDict
 from typing import Any
 
@@ -20,6 +22,7 @@ from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from strands import Agent
 from strands.agent.conversation_manager.null_conversation_manager import NullConversationManager
 
+from food_rescue_router.memory import get_session_manager
 from food_rescue_router.model import build_model
 from food_rescue_router.seed_data import seed_if_empty
 from food_rescue_router.tools import COORDINATOR_TOOLS
@@ -33,19 +36,23 @@ SYSTEM_PROMPT = """You are the coordinator for a city food-rescue network. You r
 surplus-food donation offer at a time and must autonomously get it to a food bank that
 needs it, via a volunteer driver who can carry it there in time.
 
-You do not look up food banks or drivers yourself -- you delegate:
-1. Call consult_matching_specialist with the donation's category, quantity, and donor zone.
-   It will name one food bank (or say none fit).
-2. Call consult_logistics_specialist with the quantity, the pickup zone (the food bank's zone
-   if one was found, otherwise the donor's zone), and the donation's pickup window. It will
-   name one driver (or say none qualify).
-3. If both specialists found a real fit: call create_match exactly once, with a pickup_time
-   inside the donation's window and reasoning that combines both specialists' points.
-4. If either specialist found nothing viable: call escalate_donation with a specific reason
-   combining what both specialists found.
+Work in this order:
+1. Call check_food_safety_window with the donation's category and pickup window. If it
+   comes back UNSAFE, that alone can justify escalating -- perishable food sitting past
+   its safe handling limit is a real problem even if a food bank and driver are free.
+2. Call consult_matching_specialist with the donor id, category, and quantity. It uses
+   real distances, not zone labels, and will name one food bank (or say none fit).
+3. Call consult_logistics_specialist with the origin id (the chosen food bank's id if one
+   was found, otherwise the donor's id), the quantity, and the donation's pickup window.
+   It will name one driver (or say none qualify).
+4. If the safety check passed and both specialists found a real fit: call create_match
+   exactly once, with a pickup_time inside the donation's window and reasoning that
+   combines the safety check and both specialists' points.
+5. If the safety check failed, or either specialist found nothing viable: call
+   escalate_donation with a specific reason combining whatever was found.
 
 Always end by having called either create_match or escalate_donation -- never leave a
-donation unresolved, and never skip consulting both specialists first.
+donation unresolved, and never skip the safety check or either specialist.
 
 Write your final summary in a clear, professional tone: short prose or a compact
 bullet list, minimal formatting. Do not use emoji.
@@ -74,6 +81,7 @@ def agent_factory():
             system_prompt=SYSTEM_PROMPT,
             tools=COORDINATOR_TOOLS,
             conversation_manager=_make_conversation_manager(),
+            session_manager=get_session_manager(os.environ.get("AWS_REGION", "us-east-1")),
             callback_handler=None,
         )
         return cache[session_id]
