@@ -1,0 +1,10 @@
+windfall-rescue.duckdns.org {
+	reverse_proxy windfall:8080
+}
+
+# No cert exists for a raw IP -- serve it directly over plain HTTP rather than
+# inheriting Caddy's default HTTP->HTTPS redirect (which would send bare-IP
+# visitors to a broken https://<ip> with no valid certificate).
+http://32.196.16.210 {
+	reverse_proxy windfall:8080
+}

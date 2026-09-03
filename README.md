@@ -212,16 +212,29 @@ proxy container (same `windfall-net` Docker network) terminates TLS for
 `windfall-rescue.duckdns.org` with an automatically-issued and renewed Let's Encrypt
 certificate, and reverse-proxies to the app container over the internal network; the
 bare Elastic IP is served directly over plain HTTP as a fallback (no cert exists for
-a raw IP). To redeploy: `docker build`, `docker push` to the ECR repo, then
-`docker pull` + `docker run --network windfall-net` on the instance (or replace the
-instance with a fresh one running the same user-data, plus the Caddy container and
-Caddyfile).
+a raw IP). The proxy config is [deploy/Caddyfile](deploy/Caddyfile). To redeploy:
+
+```bash
+docker build -t windfall-rescue-router . && docker push <ecr-repo>:latest   # local
+
+# on the instance:
+docker network create windfall-net   # first time only
+docker pull <ecr-repo>:latest
+docker stop windfall && docker rm windfall
+docker run -d --restart unless-stopped --name windfall --network windfall-net \
+  -p 8080:8080 -e SUPABASE_URL=... -e SUPABASE_ANON_KEY=... <ecr-repo>:latest
+# Caddy only needs to be (re)started if deploy/Caddyfile changes:
+docker run -d --restart unless-stopped --name caddy --network windfall-net \
+  -p 80:80 -p 443:443 -v /path/to/Caddyfile:/etc/caddy/Caddyfile -v caddy_data:/data \
+  caddy:2-alpine
+```
 
 ## Status
 
 Core agent + API + dashboard working end to end against live Bedrock, deployed
-publicly. Routing agent also deployed standalone to AWS Bedrock AgentCore Runtime
-and verified live. Demo video in progress — see the hackathon build plan.
+publicly (HTTP and HTTPS). Routing agent also deployed standalone to AWS Bedrock
+AgentCore Runtime and verified live. Demo video recorded (real continuous walkthrough
++ pitch cards, under the 5-minute limit) — not yet uploaded publicly to YouTube/Vimeo.
 
 ## License
 
