@@ -31,6 +31,10 @@
     --color-muted: #9b9797;
     --color-divider: rgba(32,31,29,.16);
     --color-scrollbar: #d7d3d3;
+    /* Added to every color-mix(text, transparent) "muted text" percentage below --
+       0% in light mode leaves those untouched, but the same mix ratio reads as too
+       dim against a near-black background, so dark mode lifts it. */
+    --muted-lift: 0%;
     --font-heading: "Cormorant Garamond", Georgia, serif;
     --font-body: "Lora", Georgia, serif;
     --radius-md: 4px;
@@ -42,21 +46,23 @@
     :root:not([data-theme="light"]) {
       --color-bg: #181715; --color-surface: #232120; --color-text: #ece9e3;
       --color-accent: #e3b45c; --color-accent-700: #f0c877;
-      --olive: #93a865; --rust: #d98f63; --color-muted: #a39e98;
+      --olive: #93a865; --rust: #d98f63; --color-muted: #c2beb8;
       --color-divider: rgba(255,255,255,.14); --color-scrollbar: #443f3a;
+      --muted-lift: 20%;
     }
   }
   :root[data-theme="dark"] {
     --color-bg: #181715; --color-surface: #232120; --color-text: #ece9e3;
     --color-accent: #e3b45c; --color-accent-700: #f0c877;
-    --olive: #93a865; --rust: #d98f63; --color-muted: #a39e98;
+    --olive: #93a865; --rust: #d98f63; --color-muted: #c2beb8;
     --color-divider: rgba(255,255,255,.14); --color-scrollbar: #443f3a;
+    --muted-lift: 20%;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
   h1,h2,h3,h4,h5,h6 { font-family: var(--font-heading); font-weight: 600; line-height: 1.12; letter-spacing: -0.015em; margin: 0; }
   .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
-  .text-muted { color: color-mix(in srgb, var(--color-text) 55%, transparent); }
+  .text-muted { color: color-mix(in srgb, var(--color-text) calc(55% + var(--muted-lift)), transparent); }
   a { color: var(--color-accent); }
   ::-webkit-scrollbar { width: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--color-scrollbar); border-radius: 9999px; }
@@ -82,7 +88,7 @@
   .btn-primary:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
   .btn-secondary { border-color: var(--color-divider); color: var(--color-text); }
   .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
-  .field label { display: block; font-size: 12px; margin-bottom: 5px; color: color-mix(in srgb, var(--color-text) 70%, transparent); }
+  .field label { display: block; font-size: 12px; margin-bottom: 5px; color: color-mix(in srgb, var(--color-text) calc(70% + var(--muted-lift)), transparent); }
   .input { width: 100%; min-height: 36px; padding: 6px 10px; font: inherit; font-size: 14px; color: var(--color-text);
     background: transparent; border: 1px solid var(--color-divider); border-radius: var(--radius-md); }
   .input:focus { outline: 2px solid var(--color-accent); outline-offset: 1px; }
@@ -127,10 +133,10 @@
         </svg>
         <span style="font-family:var(--font-heading); font-weight:600; font-size:19px; letter-spacing:0.15em;">WINDFALL</span>
         <span style="width:1px; height:17px; background:var(--color-divider);" aria-hidden="true"></span>
-        <span style="font-family:var(--font-heading); font-size:15px; font-style:italic; color:color-mix(in srgb, var(--color-text) 62%, transparent);">Rescue Router</span>
+        <span style="font-family:var(--font-heading); font-size:15px; font-style:italic; color:color-mix(in srgb, var(--color-text) calc(62% + var(--muted-lift)), transparent);">Rescue Router</span>
       </div>
       <div style="margin-left:auto; display:flex; align-items:center; gap:18px;">
-        <span class="tnum" id="clock" style="font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">Austin</span>
+        <span class="tnum" id="clock" style="font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent);">Austin</span>
         <span style="display:inline-flex; align-items:center; gap:7px; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--olive);">
           <span style="width:7px; height:7px; border-radius:50%; background:var(--olive); animation: wf-breathe 2.6s ease-in-out infinite;" aria-hidden="true"></span>Network live
         </span>
@@ -157,25 +163,25 @@
         <div class="tnum" style="font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--color-accent);">This session · the Austin network</div>
         <div class="tnum wf-hero-value" id="hero-value" style="font-family:var(--font-heading); font-weight:400; font-size:96px; line-height:0.92; letter-spacing:-0.025em; margin-top:10px;">0</div>
         <div style="font-family:var(--font-heading); font-size:27px; font-style:italic; color:var(--color-accent-700); margin-top:2px;">meals rescued and delivered</div>
-        <p style="margin:14px 0 0; font-size:13px; line-height:1.65; max-width:42ch; color:color-mix(in srgb, var(--color-text) 68%, transparent);">Counted from confirmed matches only, at 1.2 lb of edible food per meal — never an offer that merely got submitted.</p>
+        <p style="margin:14px 0 0; font-size:13px; line-height:1.65; max-width:42ch; color:color-mix(in srgb, var(--color-text) calc(68% + var(--muted-lift)), transparent);">Counted from confirmed matches only, at 1.2 lb of edible food per meal — never an offer that merely got submitted.</p>
       </div>
       <div>
         <div class="wf-stats-grid" style="display:grid; grid-template-columns:repeat(4,1fr);">
           <div style="padding:0 20px 0 0; border-right:1px solid var(--color-divider);">
             <div class="tnum" id="stat-lbs" style="font-family:var(--font-heading); font-size:34px; line-height:1.1;">0</div>
-            <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 52%, transparent); margin-top:4px;">Pounds diverted</div>
+            <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(52% + var(--muted-lift)), transparent); margin-top:4px;">Pounds diverted</div>
           </div>
           <div style="padding:0 20px; border-right:1px solid var(--color-divider);">
             <div class="tnum" id="stat-matches" style="font-family:var(--font-heading); font-size:34px; line-height:1.1;">0</div>
-            <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 52%, transparent); margin-top:4px;">Matches made</div>
+            <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(52% + var(--muted-lift)), transparent); margin-top:4px;">Matches made</div>
           </div>
           <div style="padding:0 20px; border-right:1px solid var(--color-divider);">
             <div class="tnum" id="stat-banks" style="font-family:var(--font-heading); font-size:34px; line-height:1.1;">0</div>
-            <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 52%, transparent); margin-top:4px;">Food banks in network</div>
+            <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(52% + var(--muted-lift)), transparent); margin-top:4px;">Food banks in network</div>
           </div>
           <div style="padding:0 0 0 20px;">
             <div class="tnum" id="stat-escalated" style="font-family:var(--font-heading); font-size:34px; line-height:1.1;">0</div>
-            <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 52%, transparent); margin-top:4px;">Escalated to a human</div>
+            <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(52% + var(--muted-lift)), transparent); margin-top:4px;">Escalated to a human</div>
           </div>
         </div>
       </div>
@@ -189,7 +195,7 @@
       <span class="tnum" id="today-escalated" style="font-size:12.5px; color:var(--rust);">0 escalated to a human</span>
       <span style="width:1px; height:12px; background:var(--color-divider);"></span>
       <span class="tnum" id="today-median" style="font-size:12.5px;">no matches yet</span>
-      <span class="tnum" id="today-active" style="margin-left:auto; font-size:12.5px; color:color-mix(in srgb, var(--color-text) 55%, transparent);">0 routes in motion</span>
+      <span class="tnum" id="today-active" style="margin-left:auto; font-size:12.5px; color:color-mix(in srgb, var(--color-text) calc(55% + var(--muted-lift)), transparent);">0 routes in motion</span>
     </div>
   </section>
 
@@ -233,13 +239,13 @@
       <div style="display:flex; align-items:baseline; gap:16px; margin-bottom:12px; flex-wrap:wrap;">
         <h4>The ledger</h4>
         <span class="text-muted" style="font-size:12.5px; font-style:italic;">Every offer and what became of it.</span>
-        <label id="my-donations-toggle" style="display:none; margin-left:auto; align-items:center; gap:7px; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 60%, transparent); cursor:pointer;">
+        <label id="my-donations-toggle" style="display:none; margin-left:auto; align-items:center; gap:7px; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(60% + var(--muted-lift)), transparent); cursor:pointer;">
           <input type="checkbox" id="my-donations-checkbox" style="margin:0;"> Mine only
         </label>
-        <span class="tnum" id="ledger-scope-label" style="font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">This session</span>
+        <span class="tnum" id="ledger-scope-label" style="font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent);">This session</span>
       </div>
       <div style="border-top:1px solid var(--color-divider);">
-        <div class="tnum wf-ledger-row" style="display:grid; grid-template-columns:84px 1.5fr 1.5fr 1.35fr 80px 132px; gap:14px; padding:9px 4px; font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 55%, transparent); border-bottom:1px solid var(--color-divider);">
+        <div class="tnum wf-ledger-row" style="display:grid; grid-template-columns:84px 1.5fr 1.5fr 1.35fr 80px 132px; gap:14px; padding:9px 4px; font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(55% + var(--muted-lift)), transparent); border-bottom:1px solid var(--color-divider);">
           <span>File</span><span>Donor</span><span>Load</span><span>Recipient</span><span style="text-align:right;">Meals</span><span>Outcome</span>
         </div>
         <div id="ledger"></div>
@@ -249,7 +255,7 @@
     <div>
       <div style="display:flex; align-items:baseline; gap:16px; margin-bottom:12px;">
         <h4>Activity</h4>
-        <span id="feed-status" class="tnum" style="margin-left:auto; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">Live</span>
+        <span id="feed-status" class="tnum" style="margin-left:auto; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent);">Live</span>
       </div>
       <div style="border-top:1px solid var(--color-divider); max-height:372px; overflow:auto;">
         <div id="feed" role="log" aria-live="polite"></div>
@@ -267,7 +273,7 @@
         <div style="padding:13px 16px; border-bottom:1px solid var(--color-divider); display:flex; align-items:center; gap:10px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg>
           <span class="tnum" style="font-size:10px; letter-spacing:0.16em; text-transform:uppercase;">Donors</span>
-          <span id="donor-count" class="tnum" style="margin-left:auto; font-size:11px; color:color-mix(in srgb, var(--color-text) 50%, transparent);">0</span>
+          <span id="donor-count" class="tnum" style="margin-left:auto; font-size:11px; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent);">0</span>
         </div>
         <div id="col-donors"></div>
       </div>
@@ -275,7 +281,7 @@
         <div style="padding:13px 16px; border-bottom:1px solid var(--color-divider); display:flex; align-items:center; gap:10px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--olive)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 22h18"></path><path d="M6 18v-7"></path><path d="M10 18v-7"></path><path d="M14 18v-7"></path><path d="M18 18v-7"></path><path d="M12 2 20 7H4Z"></path></svg>
           <span class="tnum" style="font-size:10px; letter-spacing:0.16em; text-transform:uppercase;">Food banks &amp; pantries</span>
-          <span id="bank-count" class="tnum" style="margin-left:auto; font-size:11px; color:color-mix(in srgb, var(--color-text) 50%, transparent);">0</span>
+          <span id="bank-count" class="tnum" style="margin-left:auto; font-size:11px; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent);">0</span>
         </div>
         <div id="col-foodbanks"></div>
       </div>
@@ -283,7 +289,7 @@
         <div style="padding:13px 16px; border-bottom:1px solid var(--color-divider); display:flex; align-items:center; gap:10px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 0 0-16 0"></path></svg>
           <span class="tnum" style="font-size:10px; letter-spacing:0.16em; text-transform:uppercase;">Volunteer drivers</span>
-          <span id="driver-count" class="tnum" style="margin-left:auto; font-size:11px; color:color-mix(in srgb, var(--color-text) 50%, transparent);">0</span>
+          <span id="driver-count" class="tnum" style="margin-left:auto; font-size:11px; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent);">0</span>
         </div>
         <div id="col-drivers"></div>
       </div>
@@ -384,7 +390,7 @@ async function refresh() {
     const dot = pending ? statusDot("var(--color-accent)", "color-mix(in srgb, var(--color-accent) 24%, transparent)", "offer live") : statusDot("var(--color-muted)", "transparent", d.zone);
     return `<div style="display:grid; grid-template-columns:1fr auto; gap:10px; padding:11px 16px; border-bottom:1px solid var(--color-divider); align-items:center;">
       <div><div style="font-family:var(--font-heading); font-weight:600; font-size:14.5px;">${esc(d.name)}</div>
-      <div class="tnum" style="font-size:11px; color:color-mix(in srgb, var(--color-text) 52%, transparent); margin-top:1px;">${esc(d.kind)} &middot; ${esc(d.zone)}</div></div>
+      <div class="tnum" style="font-size:11px; color:color-mix(in srgb, var(--color-text) calc(52% + var(--muted-lift)), transparent); margin-top:1px;">${esc(d.kind)} &middot; ${esc(d.zone)}</div></div>
       ${dot}</div>`;
   }).join("") || '<p class="text-muted" style="padding:16px;">No donors yet.</p>';
 
@@ -397,7 +403,7 @@ async function refresh() {
     const dot = statusDot(color, incoming ? "color-mix(in srgb, var(--color-accent) 24%, transparent)" : "transparent", label);
     return `<div style="display:grid; grid-template-columns:1fr auto; gap:10px; padding:11px 16px; border-bottom:1px solid var(--color-divider); align-items:center;">
       <div><div style="font-family:var(--font-heading); font-weight:600; font-size:14.5px;">${esc(fb.name)}</div>
-      <div class="tnum" style="font-size:11px; color:color-mix(in srgb, var(--color-text) 52%, transparent); margin-top:1px;">${esc(fb.zone)} &middot; cap ${fb.capacity_lbs} lbs</div></div>
+      <div class="tnum" style="font-size:11px; color:color-mix(in srgb, var(--color-text) calc(52% + var(--muted-lift)), transparent); margin-top:1px;">${esc(fb.zone)} &middot; cap ${fb.capacity_lbs} lbs</div></div>
       ${dot}</div>`;
   }).join("") || '<p class="text-muted" style="padding:16px;">No food banks yet.</p>';
 
@@ -405,7 +411,7 @@ async function refresh() {
     const dot = dr.status === "assigned" ? statusDot("var(--color-accent)", "color-mix(in srgb, var(--color-accent) 24%, transparent)", "on route") : statusDot("var(--olive)", "transparent", "available");
     return `<div style="display:grid; grid-template-columns:1fr auto; gap:10px; padding:11px 16px; border-bottom:1px solid var(--color-divider); align-items:center;">
       <div><div style="font-family:var(--font-heading); font-weight:600; font-size:14.5px;">${esc(dr.name)}</div>
-      <div class="tnum" style="font-size:11px; color:color-mix(in srgb, var(--color-text) 52%, transparent); margin-top:1px;">${esc(dr.zone)} &middot; up to ${dr.vehicle_capacity_lbs} lbs</div></div>
+      <div class="tnum" style="font-size:11px; color:color-mix(in srgb, var(--color-text) calc(52% + var(--muted-lift)), transparent); margin-top:1px;">${esc(dr.zone)} &middot; up to ${dr.vehicle_capacity_lbs} lbs</div></div>
       ${dot}</div>`;
   }).join("") || '<p class="text-muted" style="padding:16px;">No drivers yet.</p>';
 
@@ -418,10 +424,10 @@ async function refresh() {
     const colors = { pending: ["var(--color-muted)", "transparent", "Routing…"], matched: ["var(--color-accent)", "color-mix(in srgb, var(--color-accent) 24%, transparent)", "Matched"], escalated: ["var(--rust)", "color-mix(in srgb, var(--rust) 24%, transparent)", "Escalated"] };
     const [color, fill, label] = colors[d.status] || colors.pending;
     return `<div class="tnum wf-ledger-row" style="display:grid; grid-template-columns:84px 1.5fr 1.5fr 1.35fr 80px 132px; gap:14px; padding:11px 4px; border-bottom:1px solid var(--color-divider); font-size:13px; align-items:baseline;">
-      <span style="font-size:11.5px; color:color-mix(in srgb, var(--color-text) 55%, transparent);">${esc(d.id)}</span>
+      <span style="font-size:11.5px; color:color-mix(in srgb, var(--color-text) calc(55% + var(--muted-lift)), transparent);">${esc(d.id)}</span>
       <span style="font-family:var(--font-body);">${esc(d.donor_name)}</span>
-      <span style="color:color-mix(in srgb, var(--color-text) 74%, transparent);">${d.quantity_lbs} lbs ${esc(d.category)}</span>
-      <span style="color:color-mix(in srgb, var(--color-text) 74%, transparent);">${esc(to)}</span>
+      <span style="color:color-mix(in srgb, var(--color-text) calc(74% + var(--muted-lift)), transparent);">${d.quantity_lbs} lbs ${esc(d.category)}</span>
+      <span style="color:color-mix(in srgb, var(--color-text) calc(74% + var(--muted-lift)), transparent);">${esc(to)}</span>
       <span style="text-align:right;">${dmeals}</span>
       ${statusDot(color, fill, label)}
     </div>`;
@@ -433,7 +439,7 @@ async function refresh() {
     const t = new Date(a.ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const tagColor = a.actor === "agent" ? "var(--color-accent)" : a.actor.startsWith("donor") ? "var(--color-accent)" : a.actor.startsWith("food_bank") ? "var(--olive)" : a.actor.startsWith("driver") ? "var(--olive)" : "var(--color-muted)";
     return `<div style="display:grid; grid-template-columns:52px 1fr; gap:12px; padding:10px 4px; border-bottom:1px solid var(--color-divider); animation:wf-rise .5s ease both;">
-      <span class="tnum" style="font-size:11px; color:color-mix(in srgb, var(--color-text) 45%, transparent); padding-top:2px;">${t}</span>
+      <span class="tnum" style="font-size:11px; color:color-mix(in srgb, var(--color-text) calc(45% + var(--muted-lift)), transparent); padding-top:2px;">${t}</span>
       <span style="font-size:12.5px; line-height:1.55;"><span style="color:${tagColor};">${esc(a.actor)} ${esc(a.action)}</span> &mdash; ${esc(a.detail)}</span>
     </div>`;
   }).join("") || '<p class="text-muted" style="padding:10px 4px;">No activity yet.</p>';
@@ -470,7 +476,7 @@ function renderCoordinator(state) {
           <span style="font-family:var(--font-heading); font-weight:600; font-size:14.5px;">${stage}</span>
         </div>
       </div>
-      <div style="padding:12px 20px 15px; border-top:1px solid var(--color-divider); font-size:11.5px; line-height:1.6; color:color-mix(in srgb, var(--color-text) 60%, transparent); font-style:italic;">
+      <div style="padding:12px 20px 15px; border-top:1px solid var(--color-divider); font-size:11.5px; line-height:1.6; color:color-mix(in srgb, var(--color-text) calc(60% + var(--muted-lift)), transparent); font-style:italic;">
         A minute is the honest cost of this: two separate specialist agents check real capacity and availability before the coordinator will commit anyone.
       </div>`;
     return;
@@ -488,23 +494,23 @@ function renderCoordinator(state) {
         <div class="tnum" style="font-size:10px; letter-spacing:0.16em; text-transform:uppercase; color:var(--olive);">Match confirmed</div>
         <div style="display:grid; gap:0; margin-top:12px;">
           <div style="display:grid; grid-template-columns:74px 1fr; gap:12px; padding:9px 0; border-bottom:1px solid var(--color-divider);">
-            <span class="tnum" style="font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent); padding-top:3px;">From</span>
+            <span class="tnum" style="font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent); padding-top:3px;">From</span>
             <span style="font-family:var(--font-heading); font-size:16px;">${esc(d.donor_name)}</span></div>
           <div style="display:grid; grid-template-columns:74px 1fr; gap:12px; padding:9px 0; border-bottom:1px solid var(--color-divider);">
-            <span class="tnum" style="font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent); padding-top:3px;">To</span>
+            <span class="tnum" style="font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent); padding-top:3px;">To</span>
             <span style="font-family:var(--font-heading); font-size:16px;">${esc(fb ? fb.name : m.food_bank_id)}</span></div>
           <div style="display:grid; grid-template-columns:74px 1fr; gap:12px; padding:9px 0;">
-            <span class="tnum" style="font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent); padding-top:3px;">By</span>
-            <span style="font-family:var(--font-heading); font-size:16px;">${esc(dr ? dr.name : m.driver_id)} <span style="font-family:var(--font-body); font-size:12.5px; color:color-mix(in srgb, var(--color-text) 60%, transparent);">— up to ${dr ? dr.vehicle_capacity_lbs : "?"} lbs</span></span></div>
+            <span class="tnum" style="font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent); padding-top:3px;">By</span>
+            <span style="font-family:var(--font-heading); font-size:16px;">${esc(dr ? dr.name : m.driver_id)} <span style="font-family:var(--font-body); font-size:12.5px; color:color-mix(in srgb, var(--color-text) calc(60% + var(--muted-lift)), transparent);">— up to ${dr ? dr.vehicle_capacity_lbs : "?"} lbs</span></span></div>
         </div>
       </div>
       <div style="display:grid; grid-template-columns:repeat(3,1fr); border-bottom:1px solid var(--color-divider);">
-        <div style="padding:14px 20px; border-right:1px solid var(--color-divider);"><div class="tnum" style="font-family:var(--font-heading); font-size:25px;">${Math.round(d.quantity_lbs/1.2)}</div><div style="font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">Meals</div></div>
-        <div style="padding:14px 20px; border-right:1px solid var(--color-divider);"><div class="tnum" style="font-family:var(--font-heading); font-size:25px;">${d.quantity_lbs}</div><div style="font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">Lbs</div></div>
-        <div style="padding:14px 20px;"><div class="tnum" style="font-family:var(--font-heading); font-size:25px;">${esc(m.pickup_time)}</div><div style="font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 50%, transparent);">Pickup</div></div>
+        <div style="padding:14px 20px; border-right:1px solid var(--color-divider);"><div class="tnum" style="font-family:var(--font-heading); font-size:25px;">${Math.round(d.quantity_lbs/1.2)}</div><div style="font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent);">Meals</div></div>
+        <div style="padding:14px 20px; border-right:1px solid var(--color-divider);"><div class="tnum" style="font-family:var(--font-heading); font-size:25px;">${d.quantity_lbs}</div><div style="font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent);">Lbs</div></div>
+        <div style="padding:14px 20px;"><div class="tnum" style="font-family:var(--font-heading); font-size:25px;">${esc(m.pickup_time)}</div><div style="font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(50% + var(--muted-lift)), transparent);">Pickup</div></div>
       </div>
       <div style="padding:14px 20px 18px;">
-        <p style="font-size:12.5px; line-height:1.6; margin:0 0 14px; color:color-mix(in srgb, var(--color-text) 72%, transparent);">${esc(m.reasoning)}</p>
+        <p style="font-size:12.5px; line-height:1.6; margin:0 0 14px; color:color-mix(in srgb, var(--color-text) calc(72% + var(--muted-lift)), transparent);">${esc(m.reasoning)}</p>
         <button type="button" class="btn btn-secondary" id="dismiss-btn">Dismiss</button>
       </div>
     </div>`;
@@ -536,8 +542,8 @@ function renderCoordinator(state) {
   setRing(0, "var(--color-accent)", "—");
   title.textContent = "Standing by";
   body.innerHTML = `<div style="padding:30px 20px 34px; text-align:center;">
-    <div class="tnum" style="font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) 45%, transparent);">Coordinator idle</div>
-    <p style="margin:12px auto 16px; font-size:13px; line-height:1.65; max-width:34ch; color:color-mix(in srgb, var(--color-text) 70%, transparent);">Desks are staffed and listening. Log a windfall and the file opens here.</p>
+    <div class="tnum" style="font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:color-mix(in srgb, var(--color-text) calc(45% + var(--muted-lift)), transparent);">Coordinator idle</div>
+    <p style="margin:12px auto 16px; font-size:13px; line-height:1.65; max-width:34ch; color:color-mix(in srgb, var(--color-text) calc(70% + var(--muted-lift)), transparent);">Desks are staffed and listening. Log a windfall and the file opens here.</p>
     <button type="button" class="btn btn-primary" id="idle-open-btn">Log a windfall</button>
   </div>`;
   document.getElementById("idle-open-btn").onclick = openDialog;
@@ -572,7 +578,7 @@ function openDialog() {
         <button type="button" class="scenario-btn btn btn-secondary" style="font-size:12px; padding:6px 10px;" data-donor="d3" data-category="dairy" data-qty="550" data-start="Today 9:00am" data-end="Today 11:00am">Tight capacity</button>
         <button type="button" class="scenario-btn btn btn-secondary" style="font-size:12px; padding:6px 10px;" data-donor="d2" data-category="dairy" data-qty="5000" data-start="Today 11:50pm" data-end="Today 11:55pm">No match &rarr; escalate</button>
       </div>
-      <p style="font-size:11.5px; line-height:1.6; margin:0; color:color-mix(in srgb, var(--color-text) 58%, transparent); font-style:italic;">The Coordinator consults a Matching Specialist and a Logistics Specialist in turn — expect ~60-90 seconds, not instant.</p>
+      <p style="font-size:11.5px; line-height:1.6; margin:0; color:color-mix(in srgb, var(--color-text) calc(58% + var(--muted-lift)), transparent); font-style:italic;">The Coordinator consults a Matching Specialist and a Logistics Specialist in turn — expect ~60-90 seconds, not instant.</p>
       <div class="dialog-actions">
         <button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button>
         <button type="button" class="btn btn-primary" id="submit-btn">Send to the Coordinator</button>
@@ -716,7 +722,7 @@ function openSignInDialog() {
         <div class="tnum" style="font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--color-accent);">Optional</div>
         <div class="dialog-title" id="signin-title" style="margin-top:5px;">Sign in</div>
       </div>
-      <p style="font-size:12.5px; line-height:1.6; margin:0; color:color-mix(in srgb, var(--color-text) 65%, transparent);">Nothing here is required to use Windfall — signing in just lets you filter the ledger to what you personally logged. We'll email you a one-time link, no password.</p>
+      <p style="font-size:12.5px; line-height:1.6; margin:0; color:color-mix(in srgb, var(--color-text) calc(65% + var(--muted-lift)), transparent);">Nothing here is required to use Windfall — signing in just lets you filter the ledger to what you personally logged. We'll email you a one-time link, no password.</p>
       <div class="field"><label for="signin-email">Email</label><input class="input" type="email" id="signin-email" placeholder="you@example.com"></div>
       <p id="signin-status" class="text-muted" style="font-size:12px; margin:0; min-height:1.2em;" role="status" aria-live="polite"></p>
       <div class="dialog-actions">
