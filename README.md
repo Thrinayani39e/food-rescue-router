@@ -16,9 +16,10 @@ on screen is computed from live state).
 
 Built for the **Agents for Humans Hackathon** (Good Neighbor track).
 
-**Live demo**: [http://32.196.16.210](http://32.196.16.210) — the actual dashboard,
-deployed on an AWS EC2 instance, running the real multi-agent Coordinator against live
-Amazon Bedrock calls. Not a mockup — submit a donation and watch it route for real.
+**Live demo**: [https://windfall-rescue.duckdns.org](https://windfall-rescue.duckdns.org)
+— the actual dashboard, deployed on an AWS EC2 instance behind Caddy (automatic HTTPS
+via Let's Encrypt), running the real multi-agent Coordinator against live Amazon
+Bedrock calls. Not a mockup — submit a donation and watch it route for real.
 
 ## Why this exists
 
@@ -205,10 +206,16 @@ redeploy it.
 
 The full dashboard (`Dockerfile` at the repo root) is built as a container image,
 pushed to Amazon ECR, and run on an EC2 instance (`t3.small`, IAM instance role
-scoped to `bedrock:InvokeModel`/`Converse` and ECR pull only) with a security group
-open on port 80. See the live link above. To redeploy: `docker build`, `docker push`
-to the ECR repo, then `docker pull` + `docker run` on the instance (or replace the
-instance with a fresh one running the same user-data).
+scoped to `bedrock:InvokeModel`/`Converse`, ECR pull, and AgentCore Memory) with a
+security group open on ports 80 and 443. A [Caddy](https://caddyserver.com/) reverse
+proxy container (same `windfall-net` Docker network) terminates TLS for
+`windfall-rescue.duckdns.org` with an automatically-issued and renewed Let's Encrypt
+certificate, and reverse-proxies to the app container over the internal network; the
+bare Elastic IP is served directly over plain HTTP as a fallback (no cert exists for
+a raw IP). To redeploy: `docker build`, `docker push` to the ECR repo, then
+`docker pull` + `docker run --network windfall-net` on the instance (or replace the
+instance with a fresh one running the same user-data, plus the Caddy container and
+Caddyfile).
 
 ## Status
 
